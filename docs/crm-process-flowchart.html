@@ -1,0 +1,2173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PropPulse CRM — How It Works (Visual Guide)</title>
+    <style>
+      :root {
+        --step1: #4f46e5;
+        --step1-light: #eef2ff;
+        --step2: #0891b2;
+        --step2-light: #ecfeff;
+        --step3: #059669;
+        --step3-light: #ecfdf5;
+        --step4: #d97706;
+        --step4-light: #fffbeb;
+        --step5: #db2777;
+        --step5-light: #fdf2f8;
+        --step6: #7c3aed;
+        --step6-light: #f5f3ff;
+        --text: #1e293b;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+        --shadow-hover: 0 12px 40px rgba(15, 23, 42, 0.14);
+        --radius: 16px;
+        --required: #16a34a;
+        --optional: #2563eb;
+        --auto: #dc2626;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.55;
+        padding: 24px 16px 80px;
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 0 auto;
+      }
+
+      /* Header */
+      .hero {
+        text-align: center;
+        margin-bottom: 36px;
+        padding: 32px 24px;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #fff;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+      .hero h1 {
+        font-size: 1.85rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .hero p {
+        font-size: 1.05rem;
+        opacity: 0.9;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+
+      /* Legend */
+      .legend {
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+      }
+      .legend h2 {
+        font-size: 1.1rem;
+        margin-bottom: 16px;
+        color: var(--text);
+      }
+      .legend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+      }
+      .legend-section h3 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .badge-required {
+        background: #dcfce7;
+        color: var(--required);
+      }
+      .badge-optional {
+        background: #dbeafe;
+        color: var(--optional);
+      }
+      .badge-auto {
+        background: #fee2e2;
+        color: var(--auto);
+      }
+      .color-swatch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        margin-bottom: 6px;
+      }
+      .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+      .field-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        background: #f1f5f9;
+        flex-shrink: 0;
+      }
+
+      /* Flow */
+      .flow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+
+      .arrow-down {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 0;
+        color: var(--muted);
+        font-size: 0.85rem;
+        gap: 4px;
+      }
+      .arrow-down svg {
+        width: 28px;
+        height: 28px;
+      }
+      .arrow-label {
+        font-weight: 600;
+        color: var(--text);
+        text-align: center;
+        max-width: 360px;
+      }
+
+      /* Step card */
+      .step-card {
+        width: 100%;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        border: 2px solid transparent;
+        transition:
+          box-shadow 0.25s,
+          transform 0.2s;
+        cursor: pointer;
+      }
+      .step-card:hover {
+        box-shadow: var(--shadow-hover);
+        transform: translateY(-2px);
+      }
+      .step-card.expanded {
+        border-color: currentColor;
+      }
+
+      .step-header {
+        padding: 20px 24px;
+        color: #fff;
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        user-select: none;
+      }
+      .step-num {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.22);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        font-weight: 800;
+        flex-shrink: 0;
+      }
+      .step-meta {
+        flex: 1;
+      }
+      .step-meta h2 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .step-meta .subtitle {
+        font-size: 0.95rem;
+        opacity: 0.92;
+      }
+      .step-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .step-tag {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+      .chevron {
+        width: 28px;
+        height: 28px;
+        transition: transform 0.3s;
+        flex-shrink: 0;
+        margin-top: 4px;
+      }
+      .step-card.expanded .chevron {
+        transform: rotate(180deg);
+      }
+
+      .step-body {
+        display: none;
+        background: var(--card);
+        padding: 0 24px 24px;
+        border-top: 1px solid var(--border);
+      }
+      .step-card.expanded .step-body {
+        display: block;
+      }
+
+      .step1 .step-header {
+        background: var(--step1);
+      }
+      .step2 .step-header {
+        background: var(--step2);
+      }
+      .step3 .step-header {
+        background: var(--step3);
+      }
+      .step4 .step-header {
+        background: var(--step4);
+      }
+      .step5 .step-header {
+        background: var(--step5);
+      }
+      .step6 .step-header {
+        background: var(--step6);
+      }
+
+      .info-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 20px;
+      }
+      @media (max-width: 640px) {
+        .info-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .info-box {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .info-box h4 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .info-box p,
+      .info-box ul {
+        font-size: 0.92rem;
+      }
+      .info-box ul {
+        padding-left: 18px;
+      }
+      .info-box li {
+        margin-bottom: 4px;
+      }
+
+      /* Form card inside step */
+      .form-card {
+        margin-top: 20px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .form-card-header {
+        padding: 12px 16px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .step1 .form-card-header {
+        background: var(--step1-light);
+        color: var(--step1);
+      }
+      .step2 .form-card-header {
+        background: var(--step2-light);
+        color: var(--step2);
+      }
+      .step3 .form-card-header {
+        background: var(--step3-light);
+        color: var(--step3);
+      }
+      .step4 .form-card-header {
+        background: var(--step4-light);
+        color: var(--step4);
+      }
+      .step5 .form-card-header {
+        background: var(--step5-light);
+        color: var(--step5);
+      }
+      .step6 .form-card-header {
+        background: var(--step6-light);
+        color: var(--step6);
+      }
+
+      .field-list {
+        padding: 8px 12px 12px;
+      }
+      .field-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+      }
+      .field-item:last-child {
+        border-bottom: none;
+      }
+      .field-name {
+        font-weight: 600;
+        flex: 1;
+      }
+      .field-desc {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .save-box {
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: 12px;
+        border-left: 4px solid;
+      }
+      .step1 .save-box {
+        background: var(--step1-light);
+        border-color: var(--step1);
+      }
+      .step2 .save-box {
+        background: var(--step2-light);
+        border-color: var(--step2);
+      }
+      .step3 .save-box {
+        background: var(--step3-light);
+        border-color: var(--step3);
+      }
+      .step4 .save-box {
+        background: var(--step4-light);
+        border-color: var(--step4);
+      }
+      .step5 .save-box {
+        background: var(--step5-light);
+        border-color: var(--step5);
+      }
+      .step6 .save-box {
+        background: var(--step6-light);
+        border-color: var(--step6);
+      }
+      .save-box h4 {
+        font-size: 0.95rem;
+        margin-bottom: 6px;
+      }
+      .save-box p {
+        font-size: 0.9rem;
+      }
+
+      /* Branch arrows */
+      .branch-container {
+        width: 100%;
+        margin: 8px 0;
+      }
+      .branch-box {
+        background: var(--card);
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        text-align: center;
+      }
+      .branch-box h3 {
+        font-size: 1rem;
+        margin-bottom: 12px;
+        color: var(--muted);
+      }
+      .branches {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 16px;
+      }
+      .branch {
+        flex: 1;
+        min-width: 200px;
+        max-width: 280px;
+        padding: 16px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+      }
+      .branch-accept {
+        background: #dcfce7;
+        border: 2px solid #16a34a;
+      }
+      .branch-reject {
+        background: #fee2e2;
+        border: 2px solid #dc2626;
+      }
+      .branch-draft {
+        background: #f1f5f9;
+        border: 2px solid #94a3b8;
+      }
+      .branch strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.95rem;
+      }
+
+      /* Overview strip */
+      .overview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 32px;
+      }
+      .overview-pill {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          opacity 0.15s;
+        border: none;
+      }
+      .overview-pill:hover {
+        transform: scale(1.05);
+        opacity: 0.9;
+      }
+
+      .footer-note {
+        text-align: center;
+        margin-top: 40px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .expand-hint {
+        text-align: center;
+        font-size: 0.88rem;
+        color: var(--muted);
+        margin-bottom: 20px;
+      }
+
+      .sub-forms {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      /* Scope of Improvement */
+      .scope-section {
+        width: 100%;
+        margin-top: 40px;
+        background: var(--card);
+        border-radius: var(--radius);
+        border: 2px solid #f59e0b;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .scope-header {
+        background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+        color: #fff;
+        padding: 20px 24px;
+      }
+      .scope-header h2 {
+        font-size: 1.35rem;
+        margin-bottom: 6px;
+      }
+      .scope-header p {
+        font-size: 0.95rem;
+        opacity: 0.92;
+      }
+      .scope-body {
+        padding: 20px 24px 24px;
+      }
+      .scope-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .scope-item {
+        display: flex;
+        gap: 14px;
+        padding: 14px 16px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        font-size: 0.92rem;
+      }
+      .scope-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: #f59e0b;
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .scope-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #92400e;
+      }
+      .scope-item span {
+        color: var(--text);
+      }
+
+      /* Print / PDF export — show all steps expanded */
+      @media print {
+        @page {
+          margin: 14mm 12mm;
+          size: A4;
+        }
+        body {
+          padding: 0;
+          background: #fff;
+          font-size: 11pt;
+        }
+        .container {
+          max-width: 100%;
+        }
+        .hero {
+          border-radius: 0;
+          box-shadow: none;
+          padding: 20px 16px;
+          margin-bottom: 20px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .legend,
+        .overview,
+        .expand-hint,
+        .chevron {
+          display: none !important;
+        }
+        .step-card {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          box-shadow: none;
+          border: 1px solid var(--border);
+          margin-bottom: 12px;
+          cursor: default;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .step-card:hover {
+          transform: none;
+        }
+        .step-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .step-body {
+          display: block !important;
+        }
+        .arrow-down {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          padding: 4px 0;
+        }
+        .arrow-down svg {
+          width: 20px;
+          height: 20px;
+        }
+        .branch-container,
+        .scope-section {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .scope-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .form-card-header,
+        .save-box,
+        .branch {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .footer-note {
+          margin-top: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="hero">
+        <h1>PropPulse CRM — How It Works</h1>
+        <p>
+          A visual guide from creating a project to sending a quotation. Click
+          any step card to see the form fields and what happens when you save.
+        </p>
+      </header>
+
+      <!-- Legend -->
+      <section class="legend">
+        <h2>Legend — How to Read This Guide</h2>
+        <div class="legend-grid">
+          <div class="legend-section">
+            <h3>Step Colors</h3>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #4f46e5"></span> Step 1 —
+              Create Project
+            </div>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #0891b2"></span> Step 2 —
+              Location &amp; Marketing
+            </div>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #059669"></span> Step 3 —
+              Finish Project Profile
+            </div>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #d97706"></span> Step 4 —
+              Project Setup
+            </div>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #db2777"></span> Step 5 —
+              Add Units
+            </div>
+            <div class="color-swatch">
+              <span class="swatch" style="background: #7c3aed"></span> Step 6 —
+              Quotation
+            </div>
+          </div>
+          <div class="legend-section">
+            <h3>Field Badges</h3>
+            <div class="legend-items">
+              <span class="badge badge-required">🟢 Required</span>
+              <span class="badge badge-optional">🔵 Optional</span>
+              <span class="badge badge-auto">🔴 Auto-filled by system</span>
+            </div>
+          </div>
+          <div class="legend-section">
+            <h3>Field Type Icons</h3>
+            <div
+              class="legend-items"
+              style="flex-direction: column; align-items: flex-start; gap: 6px"
+            >
+              <span><span class="field-icon">Aa</span> Text / Name</span>
+              <span><span class="field-icon">📅</span> Date picker</span>
+              <span><span class="field-icon">▼</span> Dropdown / Choice</span>
+              <span><span class="field-icon">#</span> Number</span>
+              <span><span class="field-icon">☑</span> Toggle / Checkbox</span>
+              <span><span class="field-icon">📎</span> File upload</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p class="expand-hint">
+        👇 Click any step below to expand and see all form fields
+      </p>
+
+      <!-- Quick jump -->
+      <nav class="overview" aria-label="Jump to step">
+        <button
+          class="overview-pill"
+          style="background: #4f46e5"
+          onclick="jumpTo(1)"
+        >
+          1 · Create Project
+        </button>
+        <button
+          class="overview-pill"
+          style="background: #0891b2"
+          onclick="jumpTo(2)"
+        >
+          2 · Location
+        </button>
+        <button
+          class="overview-pill"
+          style="background: #059669"
+          onclick="jumpTo(3)"
+        >
+          3 · Marketing
+        </button>
+        <button
+          class="overview-pill"
+          style="background: #d97706"
+          onclick="jumpTo(4)"
+        >
+          4 · Setup
+        </button>
+        <button
+          class="overview-pill"
+          style="background: #db2777"
+          onclick="jumpTo(5)"
+        >
+          5 · Units
+        </button>
+        <button
+          class="overview-pill"
+          style="background: #7c3aed"
+          onclick="jumpTo(6)"
+        >
+          6 · Quotation
+        </button>
+      </nav>
+
+      <div class="flow">
+        <!-- STEP 1 -->
+        <article class="step-card step1" id="step-1" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">1</div>
+            <div class="step-meta">
+              <h2>Create Project</h2>
+              <p class="subtitle">
+                Enter the basic details of the new real-estate project
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Sales Manager / Admin</span>
+                <span class="step-tag"
+                  >📺 Screen: Projects → Create Project → Step 1</span
+                >
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Sales Manager or Admin creates the project record so the team
+                  can start adding details.
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What triggers the next step?</h4>
+                <p>
+                  After saving, you move to
+                  <strong>Step 2 — Add Address</strong> in the project wizard.
+                </p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <div class="form-card-header">📋 Project Details Form</div>
+              <div class="field-list">
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Project Name
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      The official name of the project (e.g. "Sunrise Heights")
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Description
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      A rich-text overview of the project for marketing
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      RERA Project ID
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Government registration number (letters, numbers, and
+                      hyphens only)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">▼</span>
+                  <div>
+                    <div class="field-name">
+                      Users
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Which sales person is responsible for this project
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Notify To Emails
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Email addresses to notify when the project is created
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">📅</span>
+                  <div>
+                    <div class="field-name">
+                      Launched On
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      When the project was or will be launched (today or later)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">📅</span>
+                  <div>
+                    <div class="field-name">
+                      Expected Completion
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      When construction is expected to finish
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">📅</span>
+                  <div>
+                    <div class="field-name">
+                      Possession Date
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      When buyers can take possession (must be after expected
+                      completion)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">☑</span>
+                  <div>
+                    <div class="field-name">
+                      Enable Inventory
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Turn on to allow adding units later (warning: cannot be
+                      turned off)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Created By
+                      <span class="badge badge-auto">🔴 Auto-filled</span>
+                    </div>
+                    <div class="field-desc">
+                      Your name is recorded automatically when you create the
+                      project
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Save / Next</h4>
+              <p>
+                The system saves the project name, dates, sales assignment, and
+                settings. The project is created as a <strong>draft</strong> and
+                you are taken to the Address step. Notification emails are sent
+                if you added any.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div class="arrow-down">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span class="arrow-label">Project saved → Continue the wizard</span>
+        </div>
+
+        <!-- STEP 2 -->
+        <article class="step-card step2" id="step-2" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">2</div>
+            <div class="step-meta">
+              <h2>Location &amp; Marketing Info</h2>
+              <p class="subtitle">
+                Add the project address, virtual walkthrough, amenities, and
+                brochures
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Sales Manager / Admin</span>
+                <span class="step-tag"
+                  >📺 Screen: Create Project → Steps 2, 3, 4 &amp; 5</span
+                >
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Same person completing the project profile — usually Sales or
+                  Marketing team.
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What triggers the next step?</h4>
+                <p>
+                  After all four sub-screens are saved, you move to
+                  <strong>Step 3 — Portal Integration &amp; Finish</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div class="sub-forms">
+              <div class="form-card">
+                <div class="form-card-header">📍 Step 2A — Address Form</div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Search Project Address
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Type to search — picks location from map
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Full Address
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Complete street address of the project site
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Street / Road
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Locality / Area
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        City
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        State
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Country
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Pin Code
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">#</span>
+                    <div>
+                      <div class="field-name">
+                        Map Pin (Latitude &amp; Longitude)
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Drag the map pin to set exact location
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Office Address Line 1 &amp; 2
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Sales office address if different from site
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">
+                  🥽 Step 2B — Virtual Walkthrough
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Enable Virtual Reality
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Turn on to offer a 3D walkthrough
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">📎</span>
+                    <div>
+                      <div class="field-name">
+                        Upload 3D File (.glb)
+                        <span class="badge badge-required"
+                          >🟢 Required if VR is on</span
+                        >
+                      </div>
+                      <div class="field-desc">
+                        3D model file for the virtual tour
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">
+                  🏊 Step 2C — Amenities &amp; Specifications
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Amenity Toggles
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Sr Citizen Corner, Gazebo, Kids Play Area, Garden,
+                        Jogging Track
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Specification Title
+                        <span class="badge badge-required"
+                          >🟢 Required (at least 1)</span
+                        >
+                      </div>
+                      <div class="field-desc">e.g. "Construction Quality"</div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Specification Description
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Details about that specification
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">📄 Step 2D — Brochures</div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">📎</span>
+                    <div>
+                      <div class="field-name">
+                        Upload Brochures
+                        <span class="badge badge-required"
+                          >🟢 Required (at least 1)</span
+                        >
+                      </div>
+                      <div class="field-desc">
+                        PDF, JPG, or PNG files (up to 10)
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Email Template Name
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        For sending brochures by email
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Email Subject &amp; Content
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Template Active
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Save on each sub-screen</h4>
+              <p>
+                The system saves the project location on the map, any VR file,
+                selected amenities, specification list, and uploaded brochures.
+                You can come back and edit these anytime before finishing the
+                project.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div class="arrow-down">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span class="arrow-label">Address &amp; marketing info saved</span>
+        </div>
+
+        <!-- STEP 3 -->
+        <article class="step-card step3" id="step-3" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">3</div>
+            <div class="step-meta">
+              <h2>Finish Project Profile</h2>
+              <p class="subtitle">
+                Connect to property portals and mark the project as complete
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Sales Manager / Admin</span>
+                <span class="step-tag"
+                  >📺 Screen: Create Project → Step 6 (Portal Integration)</span
+                >
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Admin or Sales Manager finalizes the project for listing on
+                  external portals.
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What triggers the next step?</h4>
+                <p>
+                  Once marked <strong>Complete</strong>, the project is ready
+                  for <strong>Step 4 — Project Setup</strong> (inventory
+                  configuration).
+                </p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <div class="form-card-header">🌐 Portal Integration Form</div>
+              <div class="field-list">
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      India Property Code
+                      <span class="badge badge-required">🟢 One required</span>
+                    </div>
+                    <div class="field-desc">
+                      Your listing code on India Property portal
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Magicbricks Code
+                      <span class="badge badge-required">🟢 One required</span>
+                    </div>
+                    <div class="field-desc">
+                      Your listing code on Magicbricks portal
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Project Status
+                      <span class="badge badge-auto"
+                        >🔴 Auto-set to Complete</span
+                      >
+                    </div>
+                    <div class="field-desc">
+                      Changes from Draft to Complete when you finish this step
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Finish / Submit</h4>
+              <p>
+                The system checks that name, address, at least one
+                specification, at least one brochure, and a portal code are all
+                filled in. If everything is OK, the project is marked
+                <strong>Complete</strong> and saved. You can now set up
+                inventory (towers, units, etc.) in Project Setup.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div class="arrow-down">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span class="arrow-label"
+            >Project profile complete → Go to Project Setup</span
+          >
+        </div>
+
+        <!-- STEP 4 -->
+        <article class="step-card step4" id="step-4" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">4</div>
+            <div class="step-meta">
+              <h2>Project Setup</h2>
+              <p class="subtitle">
+                Choose project type, building structure, and create towers /
+                sectors / floors
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Admin / Inventory Manager</span>
+                <span class="step-tag">📺 Screen: Project Setup</span>
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Admin or inventory manager configures how the project's units
+                  are organized (towers, sectors, plots, etc.).
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What triggers the next step?</h4>
+                <p>
+                  After creating at least one tower/sector/phase, you can
+                  <strong>Add Units</strong> under each section.
+                </p>
+              </div>
+            </div>
+
+            <div class="sub-forms">
+              <div class="form-card">
+                <div class="form-card-header">
+                  🏗️ Setup Step A — Project Type &amp; Structure
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Project Type
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Residential, Commercial, Industrial, Mixed-Use, or Land
+                        / Plotting
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Project Structure
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        e.g. Towers, Sectors, Villas, Plots, Phases — options
+                        change based on type
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">
+                  🏢 Setup Step B — Building Hierarchy (Towers / Sectors /
+                  Floors)
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Section Name
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        e.g. "Tower A", "Sector 1", "Phase 2" — must be unique
+                        in the project
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Description
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">Notes about this section</div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Sub-section Name
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        e.g. Wing, Floor, or Block — depends on project
+                        structure
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Section Type
+                        <span class="badge badge-auto">🔴 Auto-set</span>
+                      </div>
+                      <div class="field-desc">
+                        System picks the right label (Tower, Sector, Floor,
+                        etc.) based on your structure choice
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Save</h4>
+              <p>
+                The system saves your project type and structure, automatically
+                prepares the right unit categories (flat, plot, shop, etc.), and
+                stores each tower/sector/phase you create. You cannot delete a
+                section that already has units in it.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div class="arrow-down">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span class="arrow-label"
+            >Hierarchy created → Click "Manage Units" on any section</span
+          >
+        </div>
+
+        <!-- STEP 5 -->
+        <article class="step-card step5" id="step-5" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">5</div>
+            <div class="step-meta">
+              <h2>Add Units</h2>
+              <p class="subtitle">
+                Create individual flats, plots, or shops under each tower /
+                sector
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Sales Executive / Admin</span>
+                <span class="step-tag"
+                  >📺 Screen: Project Setup → Manage Units</span
+                >
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Sales team or admin adds each sellable unit with area, price,
+                  and availability status.
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What triggers the next step?</h4>
+                <p>
+                  Once at least one unit exists with a price, you can go to
+                  <strong>Quotations</strong> to set up pricing templates.
+                </p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <div class="form-card-header">🏠 Unit Details Form</div>
+              <div class="field-list">
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Unit Number
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      e.g. "A-101" — must be unique in the project (duplicate
+                      warning shown instantly)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">▼</span>
+                  <div>
+                    <div class="field-name">
+                      Status
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Available, Booked, Sold, or Blocked (default: Available)
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">▼</span>
+                  <div>
+                    <div class="field-name">
+                      Unit Type
+                      <span class="badge badge-auto">🔴 Auto-filled</span>
+                    </div>
+                    <div class="field-desc">
+                      Flat, Plot, Shop, etc. — picked automatically from project
+                      setup
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">#</span>
+                  <div>
+                    <div class="field-name">
+                      Carpet Area (sq ft)
+                      <span class="badge badge-required">🟢 Required</span>
+                    </div>
+                    <div class="field-desc">
+                      Usable floor area — must be greater than zero
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">#</span>
+                  <div>
+                    <div class="field-name">
+                      Super Built-up Area (sq ft)
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Total area including common spaces
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">Aa</span>
+                  <div>
+                    <div class="field-name">
+                      Facing
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">e.g. North, Park View, East</div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">☑</span>
+                  <div>
+                    <div class="field-name">
+                      Unit Amenities
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Balcony, Parking, Garden View, Corner, Modular Kitchen,
+                      Lift
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">▼</span>
+                  <div>
+                    <div class="field-name">
+                      Assigned Lead
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Link a customer lead interested in this project
+                    </div>
+                  </div>
+                </div>
+                <div class="field-item">
+                  <span class="field-icon">#</span>
+                  <div>
+                    <div class="field-name">
+                      Price per sq ft (₹)
+                      <span class="badge badge-optional">🔵 Optional</span>
+                    </div>
+                    <div class="field-desc">
+                      Used later to calculate quotation amount
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Save Unit</h4>
+              <p>
+                The system saves the unit number, areas, price, status, and
+                amenities under the selected tower/sector. If the unit number
+                already exists, you'll see an error and cannot save until you
+                change it.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div class="arrow-down">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span class="arrow-label"
+            >Units saved → Open Quotations for this project</span
+          >
+        </div>
+
+        <!-- STEP 6 -->
+        <article class="step-card step6" id="step-6" onclick="toggleStep(this)">
+          <div class="step-header">
+            <div class="step-num">6</div>
+            <div class="step-meta">
+              <h2>Generate Quotation</h2>
+              <p class="subtitle">
+                Set up pricing rules, generate a quote for a unit, and share the
+                PDF with the client
+              </p>
+              <div class="step-tags">
+                <span class="step-tag">👤 Sales Executive</span>
+                <span class="step-tag"
+                  >📺 Screen: Quotations → Select Project</span
+                >
+              </div>
+            </div>
+            <svg
+              class="chevron"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="step-body" onclick="event.stopPropagation()">
+            <div class="info-row">
+              <div class="info-box">
+                <h4>Who does this?</h4>
+                <p>
+                  Sales executive creates a formal price quote for a specific
+                  unit and sends it to the customer.
+                </p>
+              </div>
+              <div class="info-box">
+                <h4>What happens after?</h4>
+                <p>
+                  Quotation can be marked Accepted (one per unit) or Rejected.
+                  Accepted quotes lock that unit's pricing decision.
+                </p>
+              </div>
+            </div>
+
+            <div class="sub-forms">
+              <div class="form-card">
+                <div class="form-card-header">
+                  💰 Tab A — Pricing Template Setup
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Template Name
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        e.g. "Standard Quotation" — new versions created if you
+                        update
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Set as Active Template
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Makes this the default pricing template for the project
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Has Terrace Units
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        For projects with terrace pricing (future feature)
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Line Item Label
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        e.g. "GST", "PLC Charges", "Maintenance Deposit"
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Calculation Type
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Fixed amount, % of basic price, % of running total, or
+                        rate × total area
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">#</span>
+                    <div>
+                      <div class="field-name">
+                        Value
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        The number used in the formula (e.g. 5 for 5% GST)
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Is Optional Line Item
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Customer can choose to exclude this when generating the
+                        quote
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">
+                  📋 Tab B — Generate Quotation
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Select Unit
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">
+                        Pick which flat/plot/shop to quote
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Pricing Template
+                        <span class="badge badge-required">🟢 Required</span>
+                      </div>
+                      <div class="field-desc">Which pricing rules to apply</div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Client Name
+                        <span class="badge badge-required"
+                          >🟢 Required if no lead</span
+                        >
+                      </div>
+                      <div class="field-desc">
+                        Customer name on the quotation (auto-filled if unit has
+                        a lead)
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">📅</span>
+                    <div>
+                      <div class="field-name">
+                        Quotation Date
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">Defaults to today</div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">☑</span>
+                    <div>
+                      <div class="field-name">
+                        Exclude Optional Charges
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Uncheck any optional line items you don't want on this
+                        quote
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Quotation Number
+                        <span class="badge badge-auto">🔴 Auto-generated</span>
+                      </div>
+                      <div class="field-desc">
+                        Format: QT-2026-00001 — assigned when you generate
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">#</span>
+                    <div>
+                      <div class="field-name">
+                        Grand Total
+                        <span class="badge badge-auto">🔴 Auto-calculated</span>
+                      </div>
+                      <div class="field-desc">
+                        Basic price (area × rate) + all charges = final amount
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-card">
+                <div class="form-card-header">
+                  📁 Tab C — View Past Quotations
+                </div>
+                <div class="field-list">
+                  <div class="field-item">
+                    <span class="field-icon">Aa</span>
+                    <div>
+                      <div class="field-name">
+                        Quotation List
+                        <span class="badge badge-auto">🔴 Read-only</span>
+                      </div>
+                      <div class="field-desc">
+                        See all generated quotes — download PDF anytime
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-item">
+                    <span class="field-icon">▼</span>
+                    <div>
+                      <div class="field-name">
+                        Status
+                        <span class="badge badge-optional">🔵 Optional</span>
+                      </div>
+                      <div class="field-desc">
+                        Draft, Sent, Accepted, or Rejected
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-box">
+              <h4>✅ When you click Generate Quotation</h4>
+              <p>
+                The system calculates: <strong>Total Area</strong> = Carpet +
+                Super Built-up, then <strong>Basic Price</strong> = Total Area ×
+                Price per sq ft. It adds each charge line (GST, PLC, etc.) in
+                order and creates a unique quotation number. A PDF with your
+                company letterhead is ready to download and share with the
+                client. The quote is saved permanently — it cannot be edited
+                after creation.
+              </p>
+            </div>
+
+            <!-- Branch diagram -->
+            <div class="branch-container" style="margin-top: 24px">
+              <div class="branch-box">
+                <h3>After the quotation is shared with the client…</h3>
+                <div class="branches">
+                  <div class="branch branch-accept">
+                    <strong>✅ Accepted</strong>
+                    Only one accepted quote allowed per unit. Unit pricing is
+                    confirmed. Proceed with booking.
+                  </div>
+                  <div class="branch branch-reject">
+                    <strong>❌ Rejected</strong>
+                    Client declined. You can generate a new quotation with
+                    different options or pricing.
+                  </div>
+                  <div class="branch branch-draft">
+                    <strong>📝 Draft / Sent</strong>
+                    Quote saved or shared but not yet decided. Follow up with
+                    the client.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <!-- /flow -->
+
+      <!-- Scope of Improvement -->
+      <section class="scope-section" id="scope-improvement">
+        <div class="scope-header">
+          <h2>Scope of Improvement</h2>
+          <p>
+            Suggested enhancements to simplify the CRM for sales teams. This
+            guide reflects the recommended experience — some items below are not
+            yet live in the app.
+          </p>
+        </div>
+        <div class="scope-body">
+          <ul class="scope-list">
+            <li class="scope-item">
+              <span class="scope-num">1</span>
+              <div>
+                <strong>Remove "Is Active" from Create Project (Step 1)</strong>
+                <span
+                  >New projects do not need an active/inactive toggle at
+                  creation time. The system should default all new projects to
+                  active. This field adds unnecessary confusion for sales staff
+                  on day one and is better managed later from Project Management
+                  if a project must be hidden.</span
+                >
+              </div>
+            </li>
+            <li class="scope-item">
+              <span class="scope-num">2</span>
+              <div>
+                <strong>Simplify the 6-step project wizard</strong>
+                <span
+                  >Combine Address and Office Address into one screen, and group
+                  VR + Amenities into a single "Marketing" step to reduce clicks
+                  before a project is ready for inventory setup.</span
+                >
+              </div>
+            </li>
+            <li class="scope-item">
+              <span class="scope-num">3</span>
+              <div>
+                <strong>Auto-enable Inventory when Project Setup starts</strong>
+                <span
+                  >Instead of asking users to tick "Enable Inventory" during
+                  project creation, automatically turn on inventory when they
+                  open Project Setup — with a clear one-time confirmation.</span
+                >
+              </div>
+            </li>
+            <li class="scope-item">
+              <span class="scope-num">4</span>
+              <div>
+                <strong>Quotation status updates from the UI</strong>
+                <span
+                  >Allow sales executives to mark a quotation as Sent, Accepted,
+                  or Rejected directly from the quotation list — without needing
+                  admin support.</span
+                >
+              </div>
+            </li>
+            <li class="scope-item">
+              <span class="scope-num">5</span>
+              <div>
+                <strong>Pre-fill client name from assigned lead</strong>
+                <span
+                  >When generating a quotation for a unit that already has a
+                  lead assigned, automatically fill the client name and show
+                  lead contact details on the PDF.</span
+                >
+              </div>
+            </li>
+            <li class="scope-item">
+              <span class="scope-num">6</span>
+              <div>
+                <strong>Clearer duplicate unit warning</strong>
+                <span
+                  >Show the existing unit's tower/sector when a duplicate unit
+                  number is entered, so sales staff know exactly which record
+                  conflicts.</span
+                >
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <p class="footer-note">
+        PropPulse CRM Visual Guide · For internal training · Version June 2026 ·
+        Based on the Project &amp; Quotation module documentation
+      </p>
+    </div>
+
+    <script>
+      function toggleStep(card) {
+        const wasExpanded = card.classList.contains("expanded");
+        document
+          .querySelectorAll(".step-card")
+          .forEach((c) => c.classList.remove("expanded"));
+        if (!wasExpanded) card.classList.add("expanded");
+      }
+
+      function jumpTo(n) {
+        const card = document.getElementById("step-" + n);
+        if (!card) return;
+        document
+          .querySelectorAll(".step-card")
+          .forEach((c) => c.classList.remove("expanded"));
+        card.classList.add("expanded");
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // Expand first step on load
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("step-1").classList.add("expanded");
+      });
+    </script>
+  </body>
+</html>

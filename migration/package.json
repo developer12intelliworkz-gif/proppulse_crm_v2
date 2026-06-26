@@ -1,0 +1,14 @@
+
+{
+  "name": "crm-migration",
+  "version": "1.0.0",
+  "description": "Migration scripts for CRM from Supabase to PostgreSQL",
+  "scripts": {
+    "export": "node export-from-supabase.js",
+    "import": "node import-to-postgresql.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.10",
+    "pg": "^8.11.0"
+  }
+}

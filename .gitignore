@@ -1,0 +1,50 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node modules & builds
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Archives / large files
+*.zip
+*.tar.gz
+*.rar
+
+# Vite cache
+.vite/
+vite.config.ts.timestamp-*.mjs
+
+# Lock files (optional - keep one)
+bun.lockb
+
+# Uploaded files
+api/uploads/*
+!api/uploads/.gitkeep
+
+# Temp / scratch files
+*.tmp
+*.temp
