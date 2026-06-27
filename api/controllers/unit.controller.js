@@ -116,8 +116,8 @@ const mapUnitRow = (row) => ({
   project_id: row.project_id,
   hierarchy_node_id: row.hierarchy_node_id,
   nodeId: row.hierarchy_node_id,
-  node_name: row.node_name,
-  node_type_code: row.node_type_code,
+  node_name: row.node_name || row.hierarchy_name,
+  node_type_code: row.node_type_code || row.hierarchy_type_code,
   unit_number: row.unit_number,
   status: row.status,
   carpet_area_sqft:
@@ -676,3 +676,104 @@ export const deleteUnit = async (req, res) => {
       .json({ error: "Failed to delete unit", details: error.message });
   }
 };
+
+/** PATCH /:projectId/units/:unitId/status — update only the availability status */
+export const patchUnitStatus = async (req, res) => {
+  const { projectId, unitId } = req.params;
+  const { status } = req.body;
+
+  if (!status || !ALLOWED_STATUSES.has(String(status).trim().toLowerCase())) {
+    return res.status(400).json({
+      error: `Invalid status. Allowed values: ${[...ALLOWED_STATUSES].join(", ")}`,
+    });
+  }
+
+  try {
+    const numericProjectId = parseInt(projectId, 10);
+    const numericUnitId = parseInt(unitId, 10);
+
+    if (isNaN(numericProjectId) || isNaN(numericUnitId)) {
+      return res.status(400).json({ error: "Invalid projectId or unitId format" });
+    }
+
+    if (!(await projectExists(numericProjectId))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const result = await pool.query(
+      `UPDATE project_units
+       SET status = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND project_id = $3 AND deleted_at IS NULL
+       RETURNING *`,
+      [status.trim().toLowerCase(), numericUnitId, numericProjectId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Unit not found" });
+    }
+
+    res.json({
+      message: "Unit status updated",
+      data: mapUnitRow(result.rows[0]),
+    });
+  } catch (error) {
+    console.error("patchUnitStatus error:", error);
+    res.status(500).json({ error: "Failed to update unit status", details: error.message });
+  }
+};
+
+/** PATCH /:projectId/units/bulk/status — update status of multiple units */
+export const bulkPatchUnitStatus = async (req, res) => {
+  const { projectId } = req.params;
+  const { unitIds, status } = req.body;
+
+  if (!status || !ALLOWED_STATUSES.has(String(status).trim().toLowerCase())) {
+    return res.status(400).json({
+      error: `Invalid status. Allowed values: ${[...ALLOWED_STATUSES].join(", ")}`,
+    });
+  }
+
+  if (!Array.isArray(unitIds) || unitIds.length === 0) {
+    return res.status(400).json({
+      error: "unitIds must be a non-empty array of unit IDs",
+    });
+  }
+
+  try {
+    const numericProjectId = parseInt(projectId, 10);
+    const numericUnitIds = unitIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+
+    if (isNaN(numericProjectId)) {
+      return res.status(400).json({ error: "Invalid projectId format" });
+    }
+
+    if (numericUnitIds.length === 0) {
+      return res.status(400).json({ error: "No valid unit IDs provided" });
+    }
+
+    if (!(await projectExists(numericProjectId))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const placeholders = numericUnitIds.map((_, i) => `$${i + 2}`).join(", ");
+    const params = [status.trim().toLowerCase(), ...numericUnitIds, numericProjectId];
+    const projectIdPlaceholder = `$${numericUnitIds.length + 2}`;
+
+    const result = await pool.query(
+      `UPDATE project_units
+       SET status = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id IN (${placeholders}) AND project_id = ${projectIdPlaceholder} AND deleted_at IS NULL
+       RETURNING *`,
+      params
+    );
+
+    res.json({
+      message: `Updated status for ${result.rowCount} units`,
+      data: result.rows.map(mapUnitRow),
+    });
+  } catch (error) {
+    console.error("bulkPatchUnitStatus error:", error);
+    res.status(500).json({ error: "Failed to update bulk unit status", details: error.message });
+  }
+};
+

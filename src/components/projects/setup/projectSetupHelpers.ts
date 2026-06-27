@@ -11,6 +11,7 @@ export interface ProjectSetupFields {
   name: string;
   project_type?: ProjectType | string;
   project_structure?: string;
+  unit_count?: number;
 }
 
 export type ProjectSetupStep =
@@ -116,6 +117,21 @@ export const isInitialSetupComplete = (project: {
   if (!type || !structure) return false;
   if (!validTypeCodes().includes(type)) return false;
   return getHierarchyConfig(type as ProjectType, structure) !== null;
+};
+
+/**
+ * A project is "pending setup" if either:
+ *  - project_type / project_structure are not yet set, OR
+ *  - no units have been created yet (unit_count === 0)
+ * Used by the Project Setup dashboard to decide the "Pending" filter.
+ */
+export const isSetupPending = (project: {
+  project_type?: string | null;
+  project_structure?: string | null;
+  unit_count?: number | null;
+}) => {
+  if (!isInitialSetupComplete(project)) return true;
+  return (project.unit_count ?? 0) === 0;
 };
 
 export const getProjectTypeLabel = (code: string) =>

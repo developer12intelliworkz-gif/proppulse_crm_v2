@@ -3,11 +3,37 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building, MapPin, Edit, Trash2, List, Grid, Plus, Search, TrendingUp, Home, CheckCircle2 } from "lucide-react";
+import {
+  Building,
+  Building2,
+  MapPin,
+  Edit,
+  Trash2,
+  List,
+  Grid,
+  Plus,
+  Search,
+  TrendingUp,
+  Home,
+  CheckCircle2,
+  MoreVertical,
+  Shield,
+  Tag,
+  Copy,
+  Archive,
+  Check,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import axiosInstance from "@/api/axiosInstance";
+import { isInitialSetupComplete } from "./setup/projectSetupHelpers";
 
 interface Project {
   id: string;
@@ -19,6 +45,8 @@ interface Project {
   total_properties?: number;
   sold_properties?: number;
   is_active: boolean;
+  project_type?: string | null;
+  project_structure?: string | null;
 }
 
 const ACCENT_COLORS = ["var(--theme-color)", "#EC4899", "#F97316", "#059669", "#0EA5E9", "#7C3AED", "#D97706", "#DC2626"];
@@ -203,106 +231,261 @@ const ListingProject = () => {
 
         {/* ── Grid view ──────────────────────────────────── */}
         {!loading && !error && viewMode === "grid" && filteredProjects.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
             {filteredProjects.map(project => {
               const total = project.total_properties || 0;
               const sold  = project.sold_properties  || 0;
               const avail = total - sold;
               const rate  = total ? Math.round((sold / total) * 100) : 0;
-              const accent = getAccent(project.name);
               return (
                 <div key={project.id}
-                  style={{ background: "hsl(var(--card))", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", border: "1px solid hsl(var(--border))", transition: "box-shadow 0.15s, transform 0.15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 6px 24px rgba(var(--theme-color-rgb),0.15)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)"; (e.currentTarget as HTMLDivElement).style.transform = "none"; }}
+                  style={{
+                    background: "hsl(var(--card))",
+                    borderRadius: 16,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    border: "1px solid hsl(var(--border))",
+                    transition: "all 0.2s ease-in-out",
+                    padding: 20,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    minHeight: 280
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.boxShadow = "0 8px 30px rgba(var(--theme-color-rgb), 0.15)";
+                    e.currentTarget.style.borderColor = "var(--theme-color)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                    e.currentTarget.style.borderColor = "hsl(var(--border))";
+                  }}
                 >
-                  {/* Color bar */}
-                  <div style={{ height: 5, background: `linear-gradient(90deg, ${accent}, ${getAccentSemi(accent)})` }} />
-                  <div style={{ padding: "16px 18px" }}>
+                  <div>
                     {/* Top row */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: getAccentBg(accent), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Building size={19} color={accent} />
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <div style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          background: "rgba(var(--theme-color-rgb), 0.08)",
+                          border: "1.5px solid rgba(var(--theme-color-rgb), 0.15)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0
+                        }}>
+                          <Building size={18} color="var(--theme-color)" />
                         </div>
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))", lineHeight: 1.2, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "hsl(var(--muted-foreground))", marginTop: 3 }}>
-                            <MapPin size={10} />{project.city || "—"}{project.state ? `, ${project.state}` : ""}
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>
+                            {project.name}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "hsl(var(--muted-foreground))", marginTop: 4 }}>
+                            <MapPin size={10} color="hsl(var(--muted-foreground))" />
+                            {project.city || "—"}{project.state ? `, ${project.state}` : ""}
+                          </div>
+                          <div style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            marginTop: 8,
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                            background: "rgba(var(--theme-color-rgb), 0.08)",
+                            color: "var(--theme-color)",
+                            fontSize: 10,
+                            fontWeight: 600,
+                          }}>
+                            <Home size={10} />
+                            {project.project_type ? `${project.project_type.charAt(0).toUpperCase()}${project.project_type.slice(1).toLowerCase()} Project` : "Residential Project"}
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleToggleActive(project)}
-                        title="Click to toggle status"
-                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 20, fontWeight: 600, flexShrink: 0, cursor: "pointer", border: "none", background: project.is_active ? "#ECFDF5" : "#F1F5F9", color: project.is_active ? "#059669" : "#8A92B2", transition: "all 0.15s" }}
-                        onMouseEnter={e => { e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; e.currentTarget.style.color = project.is_active ? "#DC2626" : "#059669"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = project.is_active ? "#ECFDF5" : "#F1F5F9"; e.currentTarget.style.color = project.is_active ? "#059669" : "#8A92B2"; }}
-                      >
-                        {project.is_active ? "● Active" : "○ Inactive"}
-                      </button>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleToggleActive(project)}
+                          title="Click to toggle status"
+                          style={{
+                            fontSize: 10,
+                            padding: "3px 8px",
+                            borderRadius: 20,
+                            fontWeight: 600,
+                            border: "none",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            background: project.is_active ? "#ECFDF5" : "#F1F5F9",
+                            color: project.is_active ? "#059669" : "#64748B",
+                            transition: "all 0.15s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; e.currentTarget.style.color = project.is_active ? "#DC2626" : "#059669"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = project.is_active ? "#ECFDF5" : "#F1F5F9"; e.currentTarget.style.color = project.is_active ? "#059669" : "#64748B"; }}
+                        >
+                          <span style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: "50%",
+                            background: project.is_active ? "#10B981" : "#94A3B8"
+                          }} />
+                          {project.is_active ? "Active" : "Inactive"}
+                        </button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "hsl(var(--muted-foreground))",
+                              padding: 4,
+                              borderRadius: 4
+                            }}>
+                              <MoreVertical size={15} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" style={{ minWidth: 150 }}>
+                            <DropdownMenuItem onClick={() => navigate(`/projects/edit/${project.id}/step1`)}>
+                              <Edit size={13} style={{ marginRight: 8 }} /> Edit Project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleActive(project)}>
+                              <Archive size={13} style={{ marginRight: 8 }} /> {project.is_active ? "Archive Project" : "Activate Project"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              style={{ color: "#EF4444" }}
+                              onClick={() => {
+                                setSelectedProject(project);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 size={13} style={{ marginRight: 8 }} /> Delete Project
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
 
                     {/* Stats row */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
-                      {[
-                        { label: "Total",  value: total,  color: "hsl(var(--foreground))" },
-                        { label: "Sold",   value: sold,   color: "#059669" },
-                        { label: "Avail",  value: avail,  color: "var(--theme-color)" },
-                      ].map(s => (
-                        <div key={s.label} style={{ background: "hsl(var(--muted))", borderRadius: 9, padding: "9px 10px", textAlign: "center" }}>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                          <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginTop: 3, fontWeight: 500 }}>{s.label}</div>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
+                      gap: 12,
+                      padding: "14px 0",
+                      borderTop: "1px solid #F1F5F9",
+                      borderBottom: "1px solid #F1F5F9",
+                      marginBottom: 16
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: "rgba(var(--theme-color-rgb), 0.08)", color: "var(--theme-color)",
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                        }}>
+                          <Building size={14} />
                         </div>
-                      ))}
-                    </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600 }}>Total Units</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "hsl(var(--foreground))", marginTop: 2 }}>{total}</div>
+                        </div>
+                      </div>
 
-                    {/* Progress */}
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", fontWeight: 500 }}>Sales progress</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: accent }}>{rate}%</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: "#FEF2F2", color: "#EF4444",
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                        }}>
+                          <Tag size={14} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600 }}>Sold</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#EF4444", marginTop: 2 }}>{sold}</div>
+                        </div>
                       </div>
-                      <div style={{ height: 6, background: "hsl(var(--muted))", borderRadius: 99, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${rate}%`, background: `linear-gradient(90deg,${accent},${getAccentSemi(accent)})`, borderRadius: 99, transition: "width 0.5s ease" }} />
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: "#ECFDF5", color: "#059669",
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                        }}>
+                          <CheckCircle2 size={14} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600 }}>Available</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#059669", marginTop: 2 }}>{avail}</div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600 }}>Sales Progress</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: "var(--theme-color)", marginTop: 2, display: "flex", alignItems: "baseline", gap: 2 }}>
+                          {rate}<span style={{ fontSize: 11, fontWeight: 600 }}>%</span>
+                        </div>
+                        <div style={{ height: 6, background: "#F1F5F9", borderRadius: 99, overflow: "hidden", marginTop: 6 }}>
+                          <div style={{ height: "100%", width: `${rate}%`, background: "var(--theme-color)", borderRadius: 99, transition: "width 0.5s ease" }} />
+                        </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Footer */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 6, background: "rgba(var(--theme-color-rgb), 0.1)", color: "var(--theme-color)", fontWeight: 600 }}>
-                        RERA: {project.rera_project_id || "N/A"}
-                      </span>
-                      <div style={{ display: "flex", gap: 5 }}>
-                        <button
-                          onClick={() => navigate(`/projects/edit/${project.id}/step1`)}
-                          style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor="var(--theme-color)"; e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.1)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor="hsl(var(--border))"; e.currentTarget.style.background="hsl(var(--card))"; }}
-                          title="Edit"
-                        ><Edit size={13} color="var(--theme-color)" /></button>
-                        {currentUser?.role === "admin" && (
-                          <Dialog open={isDeleteDialogOpen && selectedProject?.id===project.id} onOpenChange={open=>{setIsDeleteDialogOpen(open);if(!open)setSelectedProject(null);}}>
-                            <DialogTrigger asChild>
-                              <button
-                                onClick={()=>{setSelectedProject(project);setIsDeleteDialogOpen(true);}}
-                                style={{ width:30, height:30, borderRadius:7, border:"1px solid hsl(var(--border))", background:"hsl(var(--card))", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}
-                                onMouseEnter={e=>{e.currentTarget.style.borderColor="#DC2626";e.currentTarget.style.background="rgba(220,38,38,0.15)";}}
-                                onMouseLeave={e=>{e.currentTarget.style.borderColor="hsl(var(--border))";e.currentTarget.style.background="hsl(var(--card))";}}
-                                title="Delete"
-                              ><Trash2 size={13} color="#DC2626" /></button>
-                            </DialogTrigger>
-                            <DialogContent style={{maxWidth:420}}>
-                              <DialogHeader><DialogTitle>Delete Project</DialogTitle></DialogHeader>
-                              <p style={{fontSize:13,color:"#4B5280",margin:"10px 0 20px"}}>Delete <strong>{project.name}</strong>? This cannot be undone.</p>
-                              <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-                                <Button variant="outline" onClick={()=>setIsDeleteDialogOpen(false)}>Cancel</Button>
-                                <Button variant="destructive" onClick={()=>handleDeleteProject(project.id)}>Delete</Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </div>
+                  {/* Footer */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "hsl(var(--muted-foreground))", fontWeight: 500, maxWidth: "55%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <Shield size={12} color="hsl(var(--muted-foreground))" />
+                      RERA: {project.rera_project_id || "N/A"}
+                    </div>
+                    
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {isInitialSetupComplete(project) && (
+                        <>
+                          <button
+                            onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
+                            style={{
+                              padding: "0 12px", height: 32, borderRadius: 8,
+                              border: "1.5px solid var(--theme-color)", background: "transparent", color: "var(--theme-color)",
+                              display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                              fontSize: 12, fontWeight: 700, transition: "all 0.12s"
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.08)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}
+                            title="Open Layout Builder"
+                          >
+                            <Building2 size={13} />
+                            Layout
+                          </button>
+                          <button
+                            onClick={() => navigate(`/projects/${project.id}/availability`)}
+                            style={{
+                              padding: "0 12px", height: 32, borderRadius: 8,
+                              border: "1.5px solid #059669", background: "transparent", color: "#059669",
+                              display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                              fontSize: 12, fontWeight: 700, transition: "all 0.12s"
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background="rgba(5,150,105,0.06)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}
+                            title="Manage Unit Availability"
+                          >
+                            <CheckCircle2 size={13} />
+                            Availability
+                          </button>
+                        </>
+                      )}
+
+                      {currentUser?.role === "admin" && (
+                        <Dialog open={isDeleteDialogOpen && selectedProject?.id===project.id} onOpenChange={open=>{setIsDeleteDialogOpen(open);if(!open)setSelectedProject(null);}}>
+                          <DialogContent style={{maxWidth:420}}>
+                            <DialogHeader><DialogTitle>Delete Project</DialogTitle></DialogHeader>
+                            <p style={{fontSize:13,color:"#4B5280",margin:"10px 0 20px"}}>Delete <strong>{project.name}</strong>? This cannot be undone.</p>
+                            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+                              <Button variant="outline" onClick={()=>setIsDeleteDialogOpen(false)}>Cancel</Button>
+                              <Button variant="destructive" onClick={()=>handleDeleteProject(project.id)}>Delete</Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -357,6 +540,30 @@ const ListingProject = () => {
                     <span style={{ fontSize:12, fontWeight:700, color:rate>=70?"#059669":rate>=40?"#F59E0B":accent, background:rate>=70?"#ECFDF5":rate>=40?"#FFFBEB":getAccentBg(accent), padding:"3px 9px", borderRadius:20 }}>{rate}%</span>
                   </div>
                   <div style={{ padding:"8px 12px", display:"flex", alignItems:"center", gap:5 }}>
+                    {isInitialSetupComplete(project) && (
+                      <>
+                        <button
+                          onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
+                          style={{ padding: "0 8px", height: 28, borderRadius: 6, border: "1.5px solid var(--theme-color)", background: "var(--theme-color)", color: "#fff", display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 10, fontWeight: 600 }}
+                          onMouseEnter={e => { e.currentTarget.style.background="var(--theme-color-hover)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="var(--theme-color)"; }}
+                          title="Open Layout Builder"
+                        >
+                          <Building2 size={11} />
+                          Layout
+                        </button>
+                        <button
+                          onClick={() => navigate(`/projects/${project.id}/availability`)}
+                          style={{ padding: "0 8px", height: 28, borderRadius: 6, border: "1.5px solid #059669", background: "#059669", color: "#fff", display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 10, fontWeight: 600 }}
+                          onMouseEnter={e => { e.currentTarget.style.background="#047857"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="#059669"; }}
+                          title="Manage Unit Availability"
+                        >
+                          <CheckCircle2 size={11} />
+                          Availability
+                        </button>
+                      </>
+                    )}
                     <button onClick={()=>navigate(`/projects/edit/${project.id}/step1`)}
                       style={{ width:28,height:28,borderRadius:6,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}
                       onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--theme-color)";e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.1)";}}

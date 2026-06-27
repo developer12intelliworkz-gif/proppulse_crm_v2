@@ -1854,6 +1854,18 @@ export const getProjectById = async (req, res) => {
     );
     project.specifications = specs.rows;
 
+    const amenitiesResult = await client.query(
+      `SELECT am.name FROM project_amenities pa
+       INNER JOIN amenity_master am ON am.id = pa.amenity_id
+       WHERE pa.project_id = $1 AND am.is_active = true`,
+      [id]
+    );
+    const amenitiesMap = {};
+    amenitiesResult.rows.forEach((row) => {
+      amenitiesMap[row.name] = true;
+    });
+    project.amenities = amenitiesMap;
+
     if (project.office_address && !project.office_address_line1) {
       const parts = String(project.office_address).split(", ");
       project.office_address_line1 = parts[0] || "";
@@ -1881,9 +1893,43 @@ export const getProjects = async (req, res) => {
     const baseUrl =
       process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
 
-    const projects = result.rows.map((p) =>
-      enrichProjectMedia({ ...p }, baseUrl),
-    );
+    const projectRows = result.rows;
+    const unitCountMap = {};
+
+    if (projectRows.length > 0) {
+      // Build parameterized placeholders: $1, $2, ... for each project id
+      const placeholders = projectRows.map((_, i) => `$${i + 1}`).join(", ");
+      const ids = projectRows.map((p) => p.id);
+      const unitCountResult = await client.query(
+        `SELECT 
+           project_id, 
+           COUNT(*)::int AS total_properties,
+           COUNT(CASE WHEN status = 'sold' THEN 1 END)::int AS sold_properties
+         FROM project_units
+         WHERE project_id IN (${placeholders}) AND deleted_at IS NULL
+         GROUP BY project_id`,
+        ids
+      );
+      unitCountResult.rows.forEach((r) => {
+        unitCountMap[r.project_id] = {
+          total_properties: r.total_properties,
+          sold_properties: r.sold_properties,
+        };
+      });
+    }
+
+    const projects = projectRows.map((p) => {
+      const stats = unitCountMap[p.id] || { total_properties: 0, sold_properties: 0 };
+      return enrichProjectMedia(
+        {
+          ...p,
+          unit_count: stats.total_properties,
+          total_properties: stats.total_properties,
+          sold_properties: stats.sold_properties,
+        },
+        baseUrl
+      );
+    });
 
     res.json({ data: projects });
   } catch (error) {

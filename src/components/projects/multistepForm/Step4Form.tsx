@@ -1,4 +1,4 @@
-import { useContext, useState, useRef } from 'react';
+import { useContext, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,13 @@ const Step4Form = () => {
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ unitTypes: '' });
+
+  const handleAmenitiesChange = useCallback(
+    (amenities: Record<string, boolean>) => {
+      updateFormData({ amenities });
+    },
+    [updateFormData],
+  );
 
   const validate = () => {
     const newErrors = { unitTypes: '' };
@@ -86,7 +93,10 @@ const Step4Form = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <AmenitiesSection projectId={projectId} />
+            <AmenitiesSection
+              projectId={projectId}
+              onAmenitiesChange={handleAmenitiesChange}
+            />
           </CardContent>
         </Card>
 

@@ -42,7 +42,7 @@ const MonthYearPicker = ({
   disabled = false,
   className,
 }: MonthYearPickerProps) => {
-  const effectiveMin = min || currentMonthYear();
+  const effectiveMin = min || "1900-01";
   const minYear = parseInt(effectiveMin.slice(0, 4), 10);
   const maxYear = new Date().getFullYear() + 30;
 

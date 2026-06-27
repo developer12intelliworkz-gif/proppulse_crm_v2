@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,13 @@ const EditStep4Form = () => {
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ unitTypes: '' });
+
+  const handleAmenitiesChange = useCallback(
+    (amenities: Record<string, boolean>) => {
+      updateFormData({ amenities });
+    },
+    [updateFormData],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +73,10 @@ const EditStep4Form = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <AmenitiesSection projectId={projectId ?? null} />
+              <AmenitiesSection
+                projectId={projectId ?? null}
+                onAmenitiesChange={handleAmenitiesChange}
+              />
             </CardContent>
           </Card>
 

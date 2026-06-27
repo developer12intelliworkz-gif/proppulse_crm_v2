@@ -28,7 +28,7 @@ const SYNC_STATUS_OPTIONS = ["Draft / Pending Discussion", "Active"];
 const Step6Form = () => {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
-  const { formData, updateFormData, saveStepData } = useContext(FormContext);
+  const { formData, updateFormData, saveStepData, projectId: contextProjectId } = useContext(FormContext);
   const isEditMode = !!projectId;
 
   const [formValues, setFormValues] = useState({
@@ -54,7 +54,7 @@ const Step6Form = () => {
     setLoading(true);
     try {
       const stepData = { ...formValues, status: "draft" };
-      await saveStepData(6, stepData, false);
+      const savedId = await saveStepData(6, stepData, false);
       updateFormData(stepData);
       if (!isEditMode) {
         try {
@@ -63,7 +63,8 @@ const Step6Form = () => {
           // ignore
         }
       }
-      navigate("/projects");
+      const targetProjectId = savedId || contextProjectId || projectId;
+      navigate(targetProjectId ? `/project-setup?projectId=${targetProjectId}` : "/project-setup");
     } catch (error) {
       console.error("Error saving step 6:", error);
     } finally {

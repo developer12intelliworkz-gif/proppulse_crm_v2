@@ -32,7 +32,9 @@ const Step3Form = () => {
     GalleryImageCategory[]
   >([]);
   const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newVideoFiles, setNewVideoFiles] = useState<File[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
+  const [removedVideoIds, setRemovedVideoIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const basePath = isEditMode
@@ -57,6 +59,8 @@ const Step3Form = () => {
     setNewImageFiles([]);
     setNewImageCategories([]);
     setRemovedImageIds([]);
+    setRemovedVideoIds([]);
+    setNewVideoFiles([]);
     setNewVideoUrl("");
   };
 
@@ -70,6 +74,8 @@ const Step3Form = () => {
         gallery_image_uploads: newImageFiles,
         gallery_image_categories: newImageCategories,
         gallery_images_removed: removedImageIds,
+        gallery_video_uploads: newVideoFiles,
+        gallery_videos_removed: removedVideoIds,
         enable_vr: false,
       };
       await saveStepData(3, stepData);
@@ -103,6 +109,11 @@ const Step3Form = () => {
         }}
         onVideoGroupsChange={setGalleryVideoGroups}
         onVideoUrlChange={setNewVideoUrl}
+        newVideoFiles={newVideoFiles}
+        onNewVideoFiles={setNewVideoFiles}
+        onRemoveVideo={(id) => {
+          setRemovedVideoIds((prev) => [...prev, id]);
+        }}
       />
 
       <div className="flex gap-4 pt-4">

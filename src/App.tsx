@@ -20,6 +20,7 @@ import EditProjectForm from "./components/projects/EditProjectForm";
 import EditProject from "./components/projects/multistepFormEdit/EditProject";
 import ProjectManagement from "./components/projects/ProjectManagement";
 import Layout from "./components/layout/Layout";
+import UnitAvailability from "./components/projects/UnitAvailability";
 import PropertiesManagement from "./components/properties/PropertiesManagement";
 import CreatePropertyForm from "./components/properties/CreatePropertyForm";
 import ListingLeads from "./components/leads/ListingLeads";
@@ -423,6 +424,16 @@ const AppRoutes = () => {
             <ProtectedRoute requiredPermission="edit_projects">
               <Layout>
                 <EditProject />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/availability"
+          element={
+            <ProtectedRoute requiredPermission="view_projects">
+              <Layout>
+                <UnitAvailability />
               </Layout>
             </ProtectedRoute>
           }

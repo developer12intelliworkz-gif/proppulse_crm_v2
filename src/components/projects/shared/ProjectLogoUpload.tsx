@@ -27,6 +27,7 @@ const ProjectLogoUpload = ({
   disabled = false,
 }: ProjectLogoUploadProps) => {
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,10 +47,40 @@ const ProjectLogoUpload = ({
     setLocalPreview(null);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      setPendingProjectLogo(storageKey, file);
+      setLocalPreview(URL.createObjectURL(file));
+    }
+  };
+
   const displayUrl = resolveDisplayUrl(localPreview ?? logoUrl);
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg border bg-muted/20">
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg border transition-all ${
+        isDragging
+          ? "border-[var(--theme-color)] bg-[var(--theme-color)]/5 scale-[1.01]"
+          : "bg-muted/20 border-slate-200"
+      }`}
+    >
       <div className="shrink-0">
         {displayUrl ? (
           <div className="relative">
@@ -97,7 +128,7 @@ const ProjectLogoUpload = ({
       <div className="flex-1 space-y-2 w-full min-w-0">
         <Label htmlFor={`project_logo_${storageKey}`}>Project Logo</Label>
         <p className="text-xs text-muted-foreground">
-          Upload a square image (PNG, JPG, WebP). Saved when you submit the step.
+          Upload a square image (PNG, JPG, WebP) or drag and drop it here.
         </p>
         <Input
           id={`project_logo_${storageKey}`}
@@ -106,7 +137,7 @@ const ProjectLogoUpload = ({
           accept="image/png,image/jpeg,image/webp,image/gif"
           onChange={handleChange}
           disabled={disabled}
-          className="max-w-full sm:max-w-sm"
+          className="max-w-full sm:max-w-sm cursor-pointer"
         />
       </div>
     </div>

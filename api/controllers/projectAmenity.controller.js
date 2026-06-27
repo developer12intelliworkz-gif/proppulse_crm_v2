@@ -32,10 +32,11 @@ export const getProjectAmenities = async (req, res) => {
 
 export const linkProjectAmenity = async (req, res) => {
   const { projectId } = req.params;
-  const amenityId = req.body.amenity_id ?? req.body.amenityId;
+  let amenityId = req.body.amenity_id ?? req.body.amenityId;
+  const name = req.body.name;
 
-  if (!amenityId) {
-    return res.status(400).json({ error: "amenity_id is required" });
+  if (!amenityId && !name) {
+    return res.status(400).json({ error: "amenity_id or name is required" });
   }
 
   try {
@@ -43,13 +44,31 @@ export const linkProjectAmenity = async (req, res) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
+    if (!amenityId && name) {
+      const trimmedName = name.trim();
+      const existing = await pool.query(
+        "SELECT id FROM amenity_master WHERE LOWER(name) = LOWER($1)",
+        [trimmedName],
+      );
+      if (existing.rowCount > 0) {
+        amenityId = existing.rows[0].id;
+      } else {
+        const createResult = await pool.query(
+          "INSERT INTO amenity_master (name) VALUES ($1) RETURNING id",
+          [trimmedName],
+        );
+        amenityId = createResult.rows[0].id;
+      }
+    }
+
     const amenityCheck = await pool.query(
-      "SELECT id FROM amenity_master WHERE id = $1 AND is_active = true",
+      "SELECT id, name FROM amenity_master WHERE id = $1 AND is_active = true",
       [amenityId],
     );
     if (amenityCheck.rowCount === 0) {
       return res.status(404).json({ error: "Amenity not found" });
     }
+    const amenityName = amenityCheck.rows[0].name;
 
     const result = await pool.query(
       `INSERT INTO project_amenities (project_id, amenity_id)
@@ -60,7 +79,12 @@ export const linkProjectAmenity = async (req, res) => {
     );
 
     res.status(201).json({
-      data: result.rows[0] ?? { project_id: projectId, amenity_id: amenityId },
+      data: {
+        id: amenityId,
+        project_id: projectId,
+        name: amenityName,
+        is_selected: true,
+      },
       message: "Amenity linked to project",
     });
   } catch (error) {

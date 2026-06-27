@@ -47,7 +47,7 @@ const EditStep6Form = () => {
     try {
       await saveStepData(6, { ...formValues, status: formData.status || "draft" });
       updateFormData(formValues);
-      navigate("/projects");
+      navigate(projectId ? `/project-setup?projectId=${projectId}` : "/project-setup");
     } catch (error) {
       console.error("Error saving step 6:", error);
     } finally {

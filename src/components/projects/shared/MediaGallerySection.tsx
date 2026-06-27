@@ -74,6 +74,9 @@ interface MediaGallerySectionProps {
   onRemoveImage: (id: string) => void;
   onVideoGroupsChange: (groups: GalleryVideoGroup[]) => void;
   onVideoUrlChange: (url: string) => void;
+  newVideoFiles: File[];
+  onNewVideoFiles: (files: File[]) => void;
+  onRemoveVideo: (id: string) => void;
 }
 
 type PreviewState =
@@ -92,6 +95,9 @@ const MediaGallerySection = ({
   onRemoveImage,
   onVideoGroupsChange,
   onVideoUrlChange,
+  newVideoFiles,
+  onNewVideoFiles,
+  onRemoveVideo,
 }: MediaGallerySectionProps) => {
   const [pendingCategory, setPendingCategory] =
     useState<GalleryImageCategory>("Elevations");
@@ -105,6 +111,81 @@ const MediaGallerySection = ({
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [videoUrlError, setVideoUrlError] = useState("");
+
+  const [isImgDragging, setIsImgDragging] = useState(false);
+  const [isVideoDragging, setIsVideoDragging] = useState(false);
+
+  const handleImgDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsImgDragging(true);
+  };
+
+  const handleImgDragLeave = () => {
+    setIsImgDragging(false);
+  };
+
+  const handleImgDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsImgDragging(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (!files.length) return;
+    const categories = files.map(() => pendingCategory);
+    onNewImageFiles([...newImageFiles, ...files], [
+      ...newImageCategories,
+      ...categories,
+    ]);
+  };
+
+  const handleVideoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsVideoDragging(true);
+  };
+
+  const handleVideoDragLeave = () => {
+    setIsVideoDragging(false);
+  };
+
+  const handleVideoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsVideoDragging(false);
+    const files = Array.from(e.dataTransfer.files || []).filter((f) =>
+      f.type.startsWith("video/"),
+    );
+    if (!files.length) return;
+    addVideoFiles(files);
+  };
+
+  const handleVideoFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter((f) =>
+      f.type.startsWith("video/"),
+    );
+    if (!files.length) return;
+    addVideoFiles(files);
+    e.target.value = "";
+  };
+
+  const addVideoFiles = (files: File[]) => {
+    if (!selectedVideoGroupId) return;
+    onNewVideoFiles([...newVideoFiles, ...files]);
+
+    const newItems = files.map((file) => {
+      const id = `file-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return {
+        id,
+        type: "file" as const,
+        url: URL.createObjectURL(file),
+        name: file.name,
+      };
+    });
+
+    onVideoGroupsChange(
+      galleryVideoGroups.map((g) =>
+        g.id === selectedVideoGroupId
+          ? { ...g, videos: [...g.videos, ...newItems] }
+          : g,
+      ),
+    );
+  };
 
   const pendingImagePreviews = useMemo(
     () =>
@@ -154,6 +235,13 @@ const MediaGallerySection = ({
   const handleAddVideoCategory = () => {
     const name = newCategoryName.trim();
     if (!name) return;
+    const exists = galleryVideoGroups.some(
+      (g) => g.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (exists) {
+      alert(`Category "${name}" already exists.`);
+      return;
+    }
     const id = newGalleryGroupId();
     const next = [...galleryVideoGroups, { id, name, videos: [] }];
     onVideoGroupsChange(next);
@@ -192,6 +280,13 @@ const MediaGallerySection = ({
     if (!editingGroupId) return;
     const name = editingGroupName.trim();
     if (!name) return;
+    const exists = galleryVideoGroups.some(
+      (g) => g.id !== editingGroupId && g.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (exists) {
+      alert(`Category "${name}" already exists.`);
+      return;
+    }
     onVideoGroupsChange(
       galleryVideoGroups.map((g) =>
         g.id === editingGroupId ? { ...g, name } : g,
@@ -267,6 +362,20 @@ const MediaGallerySection = ({
   };
 
   const handleRemoveVideo = (groupId: string, videoId: string) => {
+    if (videoId.startsWith("file-temp-")) {
+      const group = galleryVideoGroups.find((g) => g.id === groupId);
+      if (group) {
+        const stagingIndex = group.videos
+          .filter((v) => v.id.startsWith("file-temp-"))
+          .findIndex((v) => v.id === videoId);
+        if (stagingIndex !== -1) {
+          onNewVideoFiles(newVideoFiles.filter((_, i) => i !== stagingIndex));
+        }
+      }
+    } else {
+      onRemoveVideo(videoId);
+    }
+
     onVideoGroupsChange(
       galleryVideoGroups.map((g) =>
         g.id === groupId
@@ -358,14 +467,22 @@ const MediaGallerySection = ({
               </Select>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+              <div
+                onDragOver={handleImgDragOver}
+                onDragLeave={handleImgDragLeave}
+                onDrop={handleImgDrop}
+                onClick={() => document.getElementById("gallery_files")?.click()}
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all hover:bg-muted/5",
+                  isImgDragging
+                    ? "border-[var(--theme-color)] bg-[var(--theme-color)]/5 scale-[1.01]"
+                    : "border-slate-200 dark:border-slate-800"
+                )}
+              >
                 <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                <Label
-                  htmlFor="gallery_files"
-                  className="cursor-pointer text-sm text-primary font-medium"
-                >
-                  Choose files (images, PDFs, etc.)
-                </Label>
+                <span className="text-sm text-primary font-medium">
+                  Choose files (images, PDFs, etc.) or drag & drop here
+                </span>
                 <Input
                   id="gallery_files"
                   type="file"
@@ -583,7 +700,7 @@ const MediaGallerySection = ({
                   </div>
 
                   {selectedVideoGroupId === group.id && (
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Input
                           placeholder="Paste YouTube, Vimeo, or embeddable video URL"
@@ -621,6 +738,41 @@ const MediaGallerySection = ({
                       {videoUrlError && (
                         <p className="text-sm text-destructive">{videoUrlError}</p>
                       )}
+
+                      <div className="relative flex py-1 items-center">
+                        <div className="flex-grow border-t border-slate-200/60 dark:border-slate-800"></div>
+                        <span className="flex-shrink mx-4 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">OR Upload Custom Video</span>
+                        <div className="flex-grow border-t border-slate-200/60 dark:border-slate-800"></div>
+                      </div>
+
+                      <div
+                        onDragOver={handleVideoDragOver}
+                        onDragLeave={handleVideoDragLeave}
+                        onDrop={handleVideoDrop}
+                        onClick={() => document.getElementById("local_video_files")?.click()}
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all hover:bg-muted/5",
+                          isVideoDragging
+                            ? "border-[var(--theme-color)] bg-[var(--theme-color)]/5 scale-[1.01]"
+                            : "border-slate-200 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10"
+                        )}
+                      >
+                        <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                        <span className="text-sm text-primary font-medium block">
+                          Choose video files or drag & drop here
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-0.5 block">
+                          Supports MP4, WebM, OGG files (local machine upload)
+                        </span>
+                        <Input
+                          id="local_video_files"
+                          type="file"
+                          accept="video/mp4,video/webm,video/ogg"
+                          multiple
+                          className="hidden"
+                          onChange={handleVideoFilePick}
+                        />
+                      </div>
                     </div>
                   )}
 

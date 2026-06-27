@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,9 +19,10 @@ export interface ProjectAmenity {
 
 interface AmenitiesSectionProps {
   projectId: string | null;
+  onAmenitiesChange?: (amenities: Record<string, boolean>) => void;
 }
 
-const AmenitiesSection = ({ projectId }: AmenitiesSectionProps) => {
+const AmenitiesSection = ({ projectId, onAmenitiesChange }: AmenitiesSectionProps) => {
   const [amenities, setAmenities] = useState<ProjectAmenity[]>([]);
   const [newName, setNewName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,6 +58,22 @@ const AmenitiesSection = ({ projectId }: AmenitiesSectionProps) => {
       })
       .finally(() => setLoading(false));
   }, [projectId, loadAmenities]);
+
+  const prevAmenitiesRef = useRef<string>("");
+
+  useEffect(() => {
+    if (onAmenitiesChange) {
+      const selectionMap: Record<string, boolean> = {};
+      amenities.forEach((a) => {
+        selectionMap[a.name] = a.is_selected;
+      });
+      const currentStr = JSON.stringify(selectionMap);
+      if (prevAmenitiesRef.current !== currentStr) {
+        prevAmenitiesRef.current = currentStr;
+        onAmenitiesChange(selectionMap);
+      }
+    }
+  }, [amenities, onAmenitiesChange]);
 
   const existingNamesLower = useMemo(
     () => new Set(amenities.map((a) => a.name.trim().toLowerCase())),
@@ -218,15 +235,17 @@ const AmenitiesSection = ({ projectId }: AmenitiesSectionProps) => {
     setSaving(true);
     setError("");
     try {
-      const res = await axiosInstance.put(
-        `/projects/${projectId}/amenities/${amenity.id}`,
-        { is_selected: checked },
-      );
-      const updated = res.data?.data as ProjectAmenity;
+      if (checked) {
+        await axiosInstance.post(`/projects/${projectId}/amenities`, {
+          amenity_id: amenity.id,
+        });
+      } else {
+        await axiosInstance.delete(`/projects/${projectId}/amenities/${amenity.id}`);
+      }
       setAmenities((prev) =>
         prev.map((a) =>
           a.id === amenity.id
-            ? { ...a, is_selected: updated?.is_selected ?? checked }
+            ? { ...a, is_selected: checked }
             : a,
         ),
       );
@@ -245,37 +264,24 @@ const AmenitiesSection = ({ projectId }: AmenitiesSectionProps) => {
     setSaving(true);
     setError("");
     try {
-      if (searchTerm.trim()) {
-        await Promise.all(
-          filteredAmenities.map((a) =>
-            axiosInstance.put(`/projects/${projectId}/amenities/${a.id}`, {
-              is_selected: target,
-            }),
-          ),
-        );
-        const visibleIds = new Set(filteredAmenities.map((a) => a.id));
-        setAmenities((prev) =>
-          prev.map((a) =>
-            visibleIds.has(a.id) ? { ...a, is_selected: target } : a,
-          ),
-        );
-      } else {
-        const res = await axiosInstance.patch(
-          `/projects/${projectId}/amenities/selection`,
-          { is_selected: target },
-        );
-        const rows: ProjectAmenity[] = res.data?.data ?? [];
-        if (rows.length) {
-          const byId = new Map(rows.map((r) => [r.id, r]));
-          setAmenities((prev) =>
-            prev.map((a) => byId.get(a.id) ?? { ...a, is_selected: target }),
-          );
-        } else {
-          setAmenities((prev) =>
-            prev.map((a) => ({ ...a, is_selected: target })),
-          );
-        }
-      }
+      const toChange = filteredAmenities.filter((a) => a.is_selected !== target);
+      await Promise.all(
+        toChange.map((a) => {
+          if (target) {
+            return axiosInstance.post(`/projects/${projectId}/amenities`, {
+              amenity_id: a.id,
+            });
+          } else {
+            return axiosInstance.delete(`/projects/${projectId}/amenities/${a.id}`);
+          }
+        }),
+      );
+      const visibleIds = new Set(toChange.map((a) => a.id));
+      setAmenities((prev) =>
+        prev.map((a) =>
+          visibleIds.has(a.id) ? { ...a, is_selected: target } : a,
+        ),
+      );
     } catch (err) {
       console.error("[amenities] bulk select failed:", err);
       setError("Could not update selection");

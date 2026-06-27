@@ -42,6 +42,8 @@ import {
   getUnitsByProject,
   getUnitById,
   updateUnit,
+  patchUnitStatus,
+  bulkPatchUnitStatus,
   deleteUnit,
 } from "../controllers/unit.controller.js";
 
@@ -179,6 +181,8 @@ router.post("/:projectId/units", authenticateToken, createUnit);
 router.get("/:projectId/units", authenticateToken, getUnitsByProject);
 router.get("/:projectId/units/:unitId", authenticateToken, getUnitById);
 router.put("/:projectId/units/:unitId", authenticateToken, updateUnit);
+router.patch("/:projectId/units/bulk/status", authenticateToken, bulkPatchUnitStatus);
+router.patch("/:projectId/units/:unitId/status", authenticateToken, patchUnitStatus);
 router.delete("/:projectId/units/:unitId", authenticateToken, deleteUnit);
 
 export default router;

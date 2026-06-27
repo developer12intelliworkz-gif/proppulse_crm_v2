@@ -376,30 +376,32 @@ const Step1Form = () => {
         )}
       </div>
 
-      {/* 9. Launched On */}
-      <div>
-        <Label htmlFor="launched_on">Launched On (Month & Year) *</Label>
-        <MonthYearPicker
-          value={formValues.launched_on}
-          min={minMonth}
-          onChange={(v) => setMonthYearField("launched_on", v)}
-        />
-        {errors.launched_on && (
-          <p className="text-red-600 text-sm mt-1">{errors.launched_on}</p>
-        )}
-      </div>
+      {/* 9 & 10. Launched On & Possession Side-by-side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="launched_on">Launched On (Month & Year) *</Label>
+          <MonthYearPicker
+            value={formValues.launched_on}
+            onChange={(v) => setMonthYearField("launched_on", v)}
+            className="w-full max-w-full"
+          />
+          {errors.launched_on && (
+            <p className="text-red-600 text-sm mt-1">{errors.launched_on}</p>
+          )}
+        </div>
 
-      {/* 10. Possession */}
-      <div>
-        <Label htmlFor="possession">Possession (Month & Year) *</Label>
-        <MonthYearPicker
-          value={formValues.possession}
-          min={formValues.launched_on || minMonth}
-          onChange={(v) => setMonthYearField("possession", v)}
-        />
-        {errors.possession && (
-          <p className="text-red-600 text-sm mt-1">{errors.possession}</p>
-        )}
+        <div>
+          <Label htmlFor="possession">Possession (Month & Year) *</Label>
+          <MonthYearPicker
+            value={formValues.possession}
+            min={formValues.launched_on || undefined}
+            onChange={(v) => setMonthYearField("possession", v)}
+            className="w-full max-w-full"
+          />
+          {errors.possession && (
+            <p className="text-red-600 text-sm mt-1">{errors.possession}</p>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-4 pt-4">
