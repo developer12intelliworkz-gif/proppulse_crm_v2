@@ -54,8 +54,10 @@ import {
 
 import {
   getProjectAmenities,
-  linkProjectAmenity,
-  unlinkProjectAmenity,
+  createProjectAmenity,
+  updateProjectAmenity,
+  deleteProjectAmenity,
+  setAllProjectAmenitySelection,
 } from "../controllers/projectAmenity.controller.js";
 
 import {
@@ -86,12 +88,22 @@ router.post(
   resetProjectInitialSetup,
 );
 
+router.patch(
+  "/:projectId/amenities/selection",
+  authenticateToken,
+  setAllProjectAmenitySelection,
+);
 router.get("/:projectId/amenities", authenticateToken, getProjectAmenities);
-router.post("/:projectId/amenities", authenticateToken, linkProjectAmenity);
+router.post("/:projectId/amenities", authenticateToken, createProjectAmenity);
+router.put(
+  "/:projectId/amenities/:amenityId",
+  authenticateToken,
+  updateProjectAmenity,
+);
 router.delete(
   "/:projectId/amenities/:amenityId",
   authenticateToken,
-  unlinkProjectAmenity,
+  deleteProjectAmenity,
 );
 
 router.get(

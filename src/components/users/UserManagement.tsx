@@ -82,6 +82,7 @@ const UserManagement = () => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        params: { include_inactive: true },
       });
 
       const result = response.data;

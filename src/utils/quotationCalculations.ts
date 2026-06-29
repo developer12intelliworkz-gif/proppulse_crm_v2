@@ -61,3 +61,86 @@ export function computeParticularAmount({
 
   return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
+
+export function resolveUnitRatePerUnit(unit: {
+  base_rate?: number | null;
+  total_price?: number | null;
+  price?: number | null;
+  carpet_area_sqft?: number | null;
+  super_builtup_area_sqft?: number | null;
+}): number {
+  const baseRate =
+    unit.base_rate != null && unit.base_rate !== undefined
+      ? Number(unit.base_rate)
+      : null;
+  if (baseRate != null && Number.isFinite(baseRate) && baseRate > 0) {
+    return baseRate;
+  }
+
+  const carpet = Number(unit.carpet_area_sqft) || 0;
+  const superBuiltup = Number(unit.super_builtup_area_sqft) || 0;
+  const totalArea = carpet + superBuiltup;
+
+  const totalPrice =
+    unit.total_price != null && unit.total_price !== undefined
+      ? Number(unit.total_price)
+      : null;
+  if (
+    totalPrice != null &&
+    Number.isFinite(totalPrice) &&
+    totalPrice > 0 &&
+    totalArea > 0
+  ) {
+    return totalPrice / totalArea;
+  }
+
+  const price =
+    unit.price != null && unit.price !== undefined ? Number(unit.price) : null;
+  if (price != null && Number.isFinite(price) && price > 0) {
+    if (totalArea > 0 && price > totalArea * 1000) {
+      return price / totalArea;
+    }
+    return price;
+  }
+
+  return 0;
+}
+
+export function resolveUnitBasicPrice(unit: {
+  base_rate?: number | null;
+  total_price?: number | null;
+  price?: number | null;
+  carpet_area_sqft?: number | null;
+  super_builtup_area_sqft?: number | null;
+}): number {
+  const carpet = Number(unit.carpet_area_sqft) || 0;
+  const superBuiltup = Number(unit.super_builtup_area_sqft) || 0;
+  const totalArea = carpet + superBuiltup;
+
+  const totalPrice =
+    unit.total_price != null && unit.total_price !== undefined
+      ? Number(unit.total_price)
+      : null;
+  if (totalPrice != null && Number.isFinite(totalPrice) && totalPrice > 0) {
+    return Math.round((totalPrice + Number.EPSILON) * 100) / 100;
+  }
+
+  const price =
+    unit.price != null && unit.price !== undefined ? Number(unit.price) : null;
+  if (
+    price != null &&
+    Number.isFinite(price) &&
+    price > 0 &&
+    totalArea > 0 &&
+    price > totalArea * 1000
+  ) {
+    return Math.round((price + Number.EPSILON) * 100) / 100;
+  }
+
+  const rate = resolveUnitRatePerUnit(unit);
+  if (totalArea > 0 && rate > 0) {
+    return Math.round((totalArea * rate + Number.EPSILON) * 100) / 100;
+  }
+
+  return 0;
+}

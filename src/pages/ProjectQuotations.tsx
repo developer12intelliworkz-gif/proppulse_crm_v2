@@ -27,6 +27,8 @@ import {
   QUOTATION_CALC_TYPE_OPTIONS,
   normalizeCalculationType,
   computeParticularAmount,
+  resolveUnitRatePerUnit,
+  resolveUnitBasicPrice,
   type QuotationCalcType,
 } from "@/utils/quotationCalculations";
 
@@ -63,6 +65,8 @@ type UnitRow = {
   status: string;
   carpet_area_sqft: number | null;
   super_builtup_area_sqft: number | null;
+  base_rate?: number | null;
+  total_price?: number | null;
   price: number | null;
   lead_id: string | null;
   lead_name: string | null;
@@ -90,16 +94,28 @@ function round2(n: number) {
 function computePreview({
   particulars,
   areas,
-  pricePerUnit,
+  unit,
   excludedOptionalIds,
 }: {
   particulars: Array<Template["particulars"][number]>;
   areas: { superBuiltup: number; carpet: number; terrace: number };
-  pricePerUnit: number;
+  unit: Pick<
+    UnitRow,
+    | "base_rate"
+    | "total_price"
+    | "price"
+    | "carpet_area_sqft"
+    | "super_builtup_area_sqft"
+  >;
   excludedOptionalIds: Set<string>;
 }) {
   const totalArea = round2(areas.carpet + areas.superBuiltup);
-  const basicPrice = round2(totalArea * pricePerUnit);
+  const pricePerUnit = resolveUnitRatePerUnit(unit);
+  const basicPrice = resolveUnitBasicPrice({
+    ...unit,
+    carpet_area_sqft: areas.carpet,
+    super_builtup_area_sqft: areas.superBuiltup,
+  });
   let runningTotal = basicPrice;
   const items = [];
 
@@ -381,7 +397,13 @@ const ProjectQuotations = () => {
         ? template!.particulars
         : (rows as any),
       areas: { superBuiltup: exampleSuper, carpet: exampleCarpet, terrace: 0 },
-      pricePerUnit: exampleRate,
+      unit: {
+        base_rate: exampleRate,
+        total_price: null,
+        price: null,
+        carpet_area_sqft: exampleCarpet,
+        super_builtup_area_sqft: exampleSuper,
+      },
       excludedOptionalIds: excluded,
     });
   }, [hasTerrace, rows, template]);
@@ -454,7 +476,7 @@ const ProjectQuotations = () => {
         carpet: Number(selectedUnit.carpet_area_sqft || 0),
         terrace: 0,
       },
-      pricePerUnit: Number(selectedUnit.price || 0),
+      unit: selectedUnit,
       excludedOptionalIds: excludedOptional,
     });
   }, [

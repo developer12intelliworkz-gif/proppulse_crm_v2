@@ -1,7 +1,11 @@
 import pool from "../../database/config.js";
 import { LEAD_INQUIRY_TZ } from "../utils/leadDuplicate.js";
+import { calculateConversionRate } from "../utils/followUpMetrics.js";
+import { normalizeDisposition, isConvertedDisposition } from "../utils/followUpDisposition.js";
 
 const IST = LEAD_INQUIRY_TZ;
+
+const ACTIVE_LEAD_STATUSES = `LOWER(l.status) NOT IN ('closed', 'lost')`;
 
 async function getUserRole(userId) {
   const result = await pool.query(
@@ -31,6 +35,7 @@ function baseFollowUpJoin(isAdmin, userId) {
     WHERE la.type = 'followup'
       AND la.deleted_at IS NULL
       AND l.is_active = TRUE
+      AND ${ACTIVE_LEAD_STATUSES}
   `;
   const params = [];
   if (!isAdmin) {
@@ -41,15 +46,11 @@ function baseFollowUpJoin(isAdmin, userId) {
 }
 
 const PIPELINE_STAGE_IDS = [
-  "new_enquiry",
-  "first_contact",
-  "followup_scheduled",
-  "in_negotiation",
-  "proposal_sent",
-  "followup_pending",
-  "closed_won",
-  "closed_lost",
-  "nurturing",
+  "new",
+  "contacted",
+  "site_visit_negotiation",
+  "won",
+  "lost",
 ];
 
 function buildNextFollowUp(scheduleOn, details) {
@@ -59,26 +60,17 @@ function buildNextFollowUp(scheduleOn, details) {
   return { scheduleOn: sched, followUpStatus };
 }
 
-/** Single source of truth for pipeline stage (card counts + table filter). */
+/** Simplified 5-stage pipeline derived from lead status + next follow-up. */
 function derivePipelineStage(lead, nextFollowUp) {
   const status = (lead.status || "new").toLowerCase().trim();
-  const interest = (lead.interest_level || "").toLowerCase().trim();
-
-  if (status === "lost") return "closed_lost";
-  if (status === "closed") return "closed_won";
-  if (status === "proposal sent") return "proposal_sent";
-  if (status === "working") return "in_negotiation";
-  if (status === "qualified" && interest === "cold") return "nurturing";
-  if (status === "contacted") return "first_contact";
-
-  if (nextFollowUp) {
-    if (nextFollowUp.followUpStatus === "overdue") return "followup_pending";
-    return "followup_scheduled";
+  if (status === "lost") return "lost";
+  if (status === "closed") return "won";
+  if (["working", "proposal sent", "qualified", "site visit"].includes(status)) {
+    return "site_visit_negotiation";
   }
-
-  if (status === "new") return "new_enquiry";
-  if (status === "qualified") return "first_contact";
-  return "first_contact";
+  if (status === "contacted") return "contacted";
+  if (nextFollowUp) return "contacted";
+  return "new";
 }
 
 function countPipelineStages(items) {
@@ -86,7 +78,7 @@ function countPipelineStages(items) {
   for (const item of items) {
     const key = PIPELINE_STAGE_IDS.includes(item.stage)
       ? item.stage
-      : "first_contact";
+      : "new";
     counts[key] += 1;
   }
   return counts;
@@ -109,7 +101,7 @@ function mapFollowUpType(raw) {
   if (t === "wa") return "WhatsApp";
   if (t === "sms") return "SMS";
   if (t === "email") return "Email";
-  if (t === "meeting") return "Meeting";
+  if (t === "meeting") return "In-Person Meeting";
   if (t === "site_visit" || t === "sitevisit") return "Site Visit";
   return "Call";
 }
@@ -179,17 +171,33 @@ export const getFollowUpDashboard = async (req, res) => {
       scoped_leads AS (
         SELECT l.id, l.status
         ${leadScope.sql}
+      ),
+      all_followup_leads AS (
+        SELECT DISTINCT la.lead_id
+        FROM public.lead_activities la
+        INNER JOIN public.leads l ON la.lead_id = l.id
+        WHERE la.type = 'followup'
+          AND la.deleted_at IS NULL
+          AND l.is_active = TRUE
+          ${isAdmin ? "" : "AND l.assigned_to::text = $1::text"}
       )
       SELECT
-        (SELECT COUNT(*) FROM scoped) AS total_followups,
         (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE AND sched_date = $${baseParams.length + 1}::date) AS today_count,
-        (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE AND sched_date > $${baseParams.length + 1}::date AND sched_date <= ($${baseParams.length + 1}::date + INTERVAL '7 days')::date) AS upcoming_7,
         (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE AND sched_date < $${baseParams.length + 1}::date AND sched_date IS NOT NULL) AS overdue_count,
-        (SELECT COUNT(*) FROM scoped WHERE is_done = TRUE AND date_trunc('month', (details->>'completedAt')::timestamptz) = date_trunc('month', NOW())) AS completed_month,
-        (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE) AS pending_all,
-        (SELECT COUNT(DISTINCT lead_id) FROM scoped) AS leads_with_followups,
-        (SELECT COUNT(*) FROM scoped_leads WHERE LOWER(status) IN ('proposal sent', 'closed')) AS converted_leads,
-        (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE AND sched_date = $${baseParams.length + 1}::date) AS today_pending
+        (SELECT COUNT(*) FROM scoped WHERE is_done = TRUE AND date_trunc('month', COALESCE((details->>'completedAt')::timestamptz, NOW())) = date_trunc('month', NOW())) AS completed_month,
+        (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE AND sched_date >= date_trunc('month', (NOW() AT TIME ZONE '${IST}')::date)::date AND sched_date < (date_trunc('month', (NOW() AT TIME ZONE '${IST}')::date) + INTERVAL '1 month')::date) AS pending_month,
+        (SELECT COUNT(*) FROM all_followup_leads) AS leads_with_followups,
+        (SELECT COUNT(DISTINCT la.lead_id)
+         FROM public.lead_activities la
+         INNER JOIN all_followup_leads afl ON afl.lead_id = la.lead_id
+         WHERE la.type = 'followup' AND la.deleted_at IS NULL
+           AND (
+             COALESCE(la.details->>'disposition', '') = 'converted'
+             OR LOWER(COALESCE(la.details->>'outcome', '')) LIKE '%converted%'
+           )
+        ) AS converted_leads,
+        (SELECT COUNT(*) FROM scoped) AS total_followups,
+        (SELECT COUNT(*) FROM scoped WHERE is_done = FALSE) AS pending_all
     `;
     const statsParams = [...baseParams, todayStr];
     const statsRow = (await pool.query(statsQuery, statsParams)).rows[0];
@@ -197,10 +205,12 @@ export const getFollowUpDashboard = async (req, res) => {
     const totalFollowups = Number(statsRow.total_followups) || 0;
     const leadsWithFollowups = Number(statsRow.leads_with_followups) || 0;
     const convertedLeads = Number(statsRow.converted_leads) || 0;
-    const conversionRate =
-      leadsWithFollowups > 0
-        ? Math.round((convertedLeads / leadsWithFollowups) * 1000) / 10
-        : 0;
+    const conversionRate = calculateConversionRate(
+      convertedLeads,
+      leadsWithFollowups,
+    );
+    const completedMonth = Number(statsRow.completed_month) || 0;
+    const pendingMonth = Number(statsRow.pending_month) || 0;
     const avgPerLead =
       leadsWithFollowups > 0
         ? Math.round((totalFollowups / leadsWithFollowups) * 10) / 10
@@ -298,6 +308,17 @@ export const getFollowUpDashboard = async (req, res) => {
       const priority =
         (details.priority || row.interest_level || "medium").toLowerCase();
 
+      const tableStatus =
+        row.lead_status === "closed" || row.lead_status === "lost"
+          ? "Closed"
+          : followUpStatus === "overdue"
+            ? "Overdue"
+            : scheduleOn && scheduleOn.slice(0, 10) === todayStr
+              ? "Due Today"
+              : scheduleOn
+                ? "Upcoming"
+                : "Pending";
+
       return {
         leadId: row.lead_id,
         activityId: row.next_activity_id,
@@ -309,6 +330,7 @@ export const getFollowUpDashboard = async (req, res) => {
         assigneeName: row.assignee_name || "Unassigned",
         stage: pipelineStage,
         leadStatus: row.lead_status,
+        tableStatus,
         lastFollowUpDate: row.last_followup_date,
         nextFollowUpDate: scheduleOn ? scheduleOn.slice(0, 10) : null,
         nextFollowUpTime: scheduleOn ? scheduleOn.slice(11, 16) : null,
@@ -339,9 +361,20 @@ export const getFollowUpDashboard = async (req, res) => {
       const map = {
         missed: "overdue",
         overdue: "overdue",
+        today: "today",
       };
       const want = map[status] || status;
-      items = items.filter((i) => i.status === want);
+      if (want === "today") {
+        items = items.filter(
+          (i) =>
+            i.nextFollowUpDate === todayStr &&
+            i.status !== "overdue" &&
+            i.status !== "completed" &&
+            !["closed", "lost"].includes((i.leadStatus || "").toLowerCase()),
+        );
+      } else {
+        items = items.filter((i) => i.status === want);
+      }
     }
     if (followupType && followupType !== "all") {
       items = items.filter(
@@ -392,40 +425,61 @@ export const getFollowUpDashboard = async (req, res) => {
     const pagedItems = items.slice(offset, offset + limitNum);
 
     const leaderboardQuery = `
-      SELECT
-        u.id,
-        u.name,
-        COUNT(la.id) FILTER (
-          WHERE la.created_at >= date_trunc('month', NOW())
-        )::int AS done_month,
-        COUNT(la.id) FILTER (
-          WHERE NOT (${completedExpr})
-            AND ${scheduleExpr} IS NOT NULL
-            AND ${scheduleExpr} < (NOW() AT TIME ZONE '${IST}')::date
-        )::int AS missed_count,
-        COUNT(DISTINCT l.id)::int AS pipeline_leads
-      FROM public.users u
-      LEFT JOIN public.leads l ON l.assigned_to::text = u.id::text AND l.is_active = TRUE
-      LEFT JOIN public.lead_activities la ON la.lead_id = l.id
-        AND la.type = 'followup' AND la.deleted_at IS NULL
-      WHERE u.is_active = TRUE AND u.deleted_at IS NULL
-      GROUP BY u.id, u.name
-      HAVING COUNT(la.id) > 0 OR COUNT(l.id) > 0
-      ORDER BY done_month DESC
-      LIMIT 20
+      WITH user_stats AS (
+        SELECT
+          u.id,
+          u.name,
+          COUNT(la.id) FILTER (
+            WHERE la.type = 'followup'
+              AND la.deleted_at IS NULL
+              AND COALESCE(la.details->>'status', '') = 'completed'
+              AND la.created_at >= date_trunc('month', NOW())
+          )::int AS done_month,
+          COUNT(la.id) FILTER (
+            WHERE la.type = 'followup'
+              AND la.deleted_at IS NULL
+              AND NOT (${completedExpr})
+              AND ${scheduleExpr} IS NOT NULL
+              AND ${scheduleExpr} < (NOW() AT TIME ZONE '${IST}')::date
+          )::int AS missed_count,
+          COUNT(DISTINCT l.id) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM public.lead_activities fx
+              WHERE fx.lead_id = l.id AND fx.type = 'followup' AND fx.deleted_at IS NULL
+            )
+          )::int AS leads_with_followups,
+          COUNT(DISTINCT l.id) FILTER (
+            WHERE EXISTS (
+              SELECT 1 FROM public.lead_activities fx
+              WHERE fx.lead_id = l.id AND fx.type = 'followup' AND fx.deleted_at IS NULL
+                AND (
+                  COALESCE(fx.details->>'disposition', '') = 'converted'
+                  OR LOWER(COALESCE(fx.details->>'outcome', '')) LIKE '%converted%'
+                )
+            )
+          )::int AS converted_leads
+        FROM public.users u
+        LEFT JOIN public.leads l ON l.assigned_to::text = u.id::text AND l.is_active = TRUE
+        LEFT JOIN public.lead_activities la ON la.lead_id = l.id
+        WHERE u.is_active = TRUE AND u.deleted_at IS NULL
+        GROUP BY u.id, u.name
+        HAVING COUNT(la.id) > 0 OR COUNT(l.id) > 0
+        ORDER BY done_month DESC
+        LIMIT 20
+      )
+      SELECT * FROM user_stats
     `;
     const leaderboard = (await pool.query(leaderboardQuery)).rows.map((r) => {
       const done = Number(r.done_month) || 0;
       const missed = Number(r.missed_count) || 0;
-      const total = done + missed;
+      const leadsWithFu = Number(r.leads_with_followups) || 0;
+      const converted = Number(r.converted_leads) || 0;
       return {
         id: r.id,
         name: r.name,
         totalThisMonth: done,
         missedCount: missed,
-        completionRate: total > 0 ? Math.round((done / total) * 100) : 0,
-        pipelineLeads: Number(r.pipeline_leads) || 0,
-        avgResponseHours: null,
+        conversionRate: calculateConversionRate(converted, leadsWithFu),
       };
     });
 
@@ -439,9 +493,6 @@ export const getFollowUpDashboard = async (req, res) => {
 
     const overdue = [];
     const dueToday = [];
-    const completedRecent = [];
-    const atRisk = [];
-    const rescheduled = [];
 
     const now = Date.now();
     for (const row of alertRows) {
@@ -470,40 +521,10 @@ export const getFollowUpDashboard = async (req, res) => {
               )
             : 0,
       };
-      if (st === "completed") {
-        const completedAt = row.details?.completedAt;
-        if (completedAt && now - new Date(completedAt).getTime() < 86400000) {
-          completedRecent.push(entry);
-        }
-      } else if (st === "overdue") overdue.push(entry);
-      else if (sched === todayStr) dueToday.push(entry);
-      if (Number(row.details?.rescheduleCount) > 1) rescheduled.push(entry);
+      if (st === "overdue") overdue.push(entry);
+      else if (sched === todayStr && st !== "completed") dueToday.push(entry);
     }
     overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
-
-    const atRiskQuery = `
-      SELECT l.id, l.name, l.phone,
-        GREATEST(
-          COALESCE((SELECT MAX(la.date) FROM lead_activities la WHERE la.lead_id = l.id AND la.deleted_at IS NULL), l.created_at::date),
-          l.created_at::date
-        ) AS last_touch
-      ${leadScope.sql}
-        AND NOT EXISTS (
-          SELECT 1 FROM lead_activities la2
-          WHERE la2.lead_id = l.id AND la2.deleted_at IS NULL
-            AND la2.date >= (NOW() AT TIME ZONE '${IST}')::date - INTERVAL '7 days'
-        )
-      LIMIT 30
-    `;
-    const atRiskRows = (await pool.query(atRiskQuery, leadScope.params)).rows;
-    for (const r of atRiskRows) {
-      atRisk.push({
-        leadId: r.id,
-        leadName: r.name,
-        phone: r.phone,
-        lastTouch: r.last_touch,
-      });
-    }
 
     const calendarQuery = `
       SELECT la.id AS activity_id, la.lead_id, l.name AS lead_name, la.details,
@@ -545,15 +566,28 @@ export const getFollowUpDashboard = async (req, res) => {
 
     res.json({
       stats: {
-        totalFollowups,
         todayFollowups: Number(statsRow.today_count) || 0,
-        upcoming7: Number(statsRow.upcoming_7) || 0,
         overdue: Number(statsRow.overdue_count) || 0,
-        completedThisMonth: Number(statsRow.completed_month) || 0,
-        pendingAll: Number(statsRow.pending_all) || 0,
         conversionRate,
+        monthDone: completedMonth,
+        monthPending: pendingMonth,
+        // Advanced stats (secondary view)
+        totalFollowups,
+        pendingAll: Number(statsRow.pending_all) || 0,
         avgFollowupsPerLead: avgPerLead,
         trendTotal,
+        leadsWithFollowups,
+        convertedLeads,
+      },
+      formulas: {
+        todayFollowups:
+          "Incomplete follow-ups scheduled for today (active leads only).",
+        overdue:
+          "Incomplete follow-ups past scheduled date (active leads only), oldest first.",
+        conversionRate:
+          '(Leads with "Converted" disposition) ÷ (Leads with ≥1 follow-up) × 100, max 100%.',
+        monthDonePending:
+          "Follow-ups completed this month vs pending scheduled this month.",
       },
       pipeline: pipelineCounts,
       selectedStage: stageFilterList.length === 1 ? stageFilterList[0] : null,
@@ -569,9 +603,6 @@ export const getFollowUpDashboard = async (req, res) => {
       alerts: {
         overdue: overdue.slice(0, 20),
         dueToday: dueToday.slice(0, 20),
-        completedRecent: completedRecent.slice(0, 15),
-        atRisk: atRisk.slice(0, 20),
-        rescheduled: rescheduled.slice(0, 15),
       },
       calendar,
       today: todayStr,

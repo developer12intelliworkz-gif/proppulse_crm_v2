@@ -46,8 +46,16 @@ const UnitTypeForm = ({
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: Number(value) || value }));
+    const { name, value, type } = e.target;
+    if (type === "number") {
+      const parsed = value === "" ? 0 : parseFloat(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: Number.isFinite(parsed) ? parsed : 0,
+      }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,6 +119,8 @@ const UnitTypeForm = ({
               name="carpet_area_sqft"
               type="number"
               min="0"
+              step="any"
+              inputMode="decimal"
               value={formData.carpet_area_sqft}
               onChange={handleChange}
               required
@@ -125,6 +135,8 @@ const UnitTypeForm = ({
               name="super_builtup_area_sqft"
               type="number"
               min="0"
+              step="any"
+              inputMode="decimal"
               value={formData.super_builtup_area_sqft}
               onChange={handleChange}
             />

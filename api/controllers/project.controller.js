@@ -1854,18 +1854,6 @@ export const getProjectById = async (req, res) => {
     );
     project.specifications = specs.rows;
 
-    const amenitiesResult = await client.query(
-      `SELECT am.name FROM project_amenities pa
-       INNER JOIN amenity_master am ON am.id = pa.amenity_id
-       WHERE pa.project_id = $1 AND am.is_active = true`,
-      [id]
-    );
-    const amenitiesMap = {};
-    amenitiesResult.rows.forEach((row) => {
-      amenitiesMap[row.name] = true;
-    });
-    project.amenities = amenitiesMap;
-
     if (project.office_address && !project.office_address_line1) {
       const parts = String(project.office_address).split(", ");
       project.office_address_line1 = parts[0] || "";

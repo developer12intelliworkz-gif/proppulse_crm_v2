@@ -239,6 +239,8 @@ const UnitEditModal = ({
                   <Input
                     type="number"
                     min={0}
+                    step="any"
+                    inputMode="decimal"
                     value={form.area}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, area: e.target.value }))
@@ -272,6 +274,8 @@ const UnitEditModal = ({
                   <Input
                     type="number"
                     min={0}
+                    step="any"
+                    inputMode="decimal"
                     value={form.super_builtup_area}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, super_builtup_area: e.target.value }))

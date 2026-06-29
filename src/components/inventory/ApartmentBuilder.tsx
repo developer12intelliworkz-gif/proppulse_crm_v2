@@ -49,6 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, Layers, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface EditTarget {
@@ -459,45 +460,44 @@ const ApartmentBuilder = () => {
                       isActiveTower && "ring-2 ring-primary border-primary/40",
                     )}
                   >
-                    <CollapsibleTrigger asChild>
-                      <button
-                        type="button"
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                            {tower.name.replace(/Tower\s*/i, "").charAt(0)}
+                    <div className="flex items-center w-full">
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex-1 flex items-center justify-between p-4 text-left hover:bg-muted/50 min-w-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                              {tower.name.replace(/Tower\s*/i, "").charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-semibold">{tower.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {tower.floors.length} floors · {totalUnits} units
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold">{tower.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {tower.floors.length} floors · {totalUnits} units
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteTarget({ kind: "tower", tower });
-                            }}
-                            aria-label={`Delete ${tower.name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                           <ChevronDown
                             className={cn(
-                              "h-4 w-4 transition-transform",
+                              "h-4 w-4 shrink-0 transition-transform",
                               isExpanded && "rotate-180",
                             )}
                           />
-                        </div>
-                      </button>
-                    </CollapsibleTrigger>
+                        </button>
+                      </CollapsibleTrigger>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 mr-2 shrink-0 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({ kind: "tower", tower })
+                        }
+                        aria-label={`Delete ${tower.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <CollapsibleContent>
                       <CardContent className="border-t bg-muted/30 p-4 space-y-3">
                         {tower.floors.length === 0 ? (

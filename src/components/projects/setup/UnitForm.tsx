@@ -364,10 +364,22 @@ const UnitForm = ({
             <Label>Carpet Area (sqft) *</Label>
             <Input
               type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
               value={form.carpet_area_sqft}
-              onChange={(e) =>
-                setForm({ ...form, carpet_area_sqft: Number(e.target.value) })
-              }
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "" || raw === ".") {
+                  setForm({ ...form, carpet_area_sqft: 0 });
+                  return;
+                }
+                const parsed = parseFloat(raw);
+                setForm({
+                  ...form,
+                  carpet_area_sqft: Number.isFinite(parsed) ? parsed : 0,
+                });
+              }}
             />
           </div>
 
@@ -375,13 +387,24 @@ const UnitForm = ({
             <Label>Super Built-up (sqft)</Label>
             <Input
               type="number"
-              value={form.super_builtup_area_sqft}
-              onChange={(e) =>
+              min={0}
+              step="any"
+              inputMode="decimal"
+              value={form.super_builtup_area_sqft ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "" || raw === ".") {
+                  setForm({ ...form, super_builtup_area_sqft: undefined });
+                  return;
+                }
+                const parsed = parseFloat(raw);
                 setForm({
                   ...form,
-                  super_builtup_area_sqft: Number(e.target.value) || undefined,
-                })
-              }
+                  super_builtup_area_sqft: Number.isFinite(parsed)
+                    ? parsed
+                    : undefined,
+                });
+              }}
             />
           </div>
 

@@ -19,13 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
 import {
+  DISPOSITION_OPTIONS,
   FOLLOWUP_TYPES,
-  LEAD_STATUS_OPTIONS,
-  OUTCOME_OPTIONS,
+  NOT_INTERESTED_REASONS,
 } from "./followUpConstants";
-import { ACTIVITY_STATUS_OPTIONS } from "@/utils/activityFormUtils";
 
 interface UserOption {
   id: string;
@@ -49,7 +47,6 @@ const LogFollowUpModal = ({
   users,
   onSaved,
 }: LogFollowUpModalProps) => {
-  const { toast } = useToast();
   const [leadSearch, setLeadSearch] = useState("");
   const [leadOptions, setLeadOptions] = useState<
     { id: string; name: string; phone?: string }[]
@@ -57,17 +54,19 @@ const LogFollowUpModal = ({
   const [leadId, setLeadId] = useState(presetLeadId || "");
   const [leadName, setLeadName] = useState(presetLeadName || "");
   const [followupType, setFollowupType] = useState("call");
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("10:00");
+  const [disposition, setDisposition] = useState("");
+  const [notInterestedReason, setNotInterestedReason] = useState("");
   const [nextDate, setNextDate] = useState("");
   const [nextTime, setNextTime] = useState("10:00");
-  const [stage, setStage] = useState("contacted");
-  const [outcome, setOutcome] = useState("");
   const [priority, setPriority] = useState("medium");
   const [notes, setNotes] = useState("");
   const [assignTo, setAssignTo] = useState("");
-  const [activityStatus, setActivityStatus] = useState("scheduled");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const selectedDisposition = DISPOSITION_OPTIONS.find(
+    (d) => d.value === disposition,
+  );
 
   useEffect(() => {
     if (presetLeadId) setLeadId(presetLeadId);
@@ -105,56 +104,55 @@ const LogFollowUpModal = ({
       setLeadName("");
     }
     setNotes("");
-    setOutcome("");
-    setScheduleDate("");
+    setDisposition("");
+    setNotInterestedReason("");
     setNextDate("");
+    setError("");
   };
 
   const handleSave = async () => {
     if (!leadId) return;
+    if (!disposition) {
+      setError("Disposition is required");
+      return;
+    }
+    if (disposition === "not_interested" && !notInterestedReason) {
+      setError("Please select a reason for Not Interested");
+      return;
+    }
+    if (disposition === "call_back_later" && !nextDate) {
+      setError("Call Back Later requires a next follow-up date");
+      return;
+    }
+
     setSaving(true);
+    setError("");
     try {
-      const scheduleOn =
-        scheduleDate && scheduleTime
-          ? `${scheduleDate}T${scheduleTime}`
-          : `${new Date().toISOString().slice(0, 10)}T${scheduleTime || "10:00"}`;
+      const today = new Date().toISOString().slice(0, 10);
+      const scheduleOn = `${today}T${new Date().toTimeString().slice(0, 5)}`;
+      const nextScheduleOn = nextDate
+        ? `${nextDate}T${nextTime || "10:00"}`
+        : undefined;
 
       await axiosInstance.post(`/leads/${leadId}/activities`, {
         type: "followup",
+        date: today,
         agent: users.find((u) => u.id === assignTo)?.name || null,
-        date: scheduleOn.slice(0, 10),
-        time: scheduleOn.slice(11, 16),
         details: {
           followupType,
-          subject: outcome || "Follow-up logged",
+          subject: selectedDisposition?.label || "Follow-up logged",
           agenda: notes || "Follow-up from management page",
           scheduleOn,
+          disposition,
+          notInterestedReason:
+            disposition === "not_interested" ? notInterestedReason : undefined,
+          nextScheduleOn:
+            disposition === "call_back_later" ? nextScheduleOn : nextScheduleOn,
           priority,
-          outcome: outcome || null,
           leadsTimezone: "asiakolkata",
         },
       });
 
-      if (nextDate) {
-        const nextOn = `${nextDate}T${nextTime || "10:00"}`;
-        await axiosInstance.post(`/leads/${leadId}/activities`, {
-          type: "followup",
-          date: nextDate,
-          time: nextTime,
-          details: {
-            followupType: "call",
-            subject: "Next follow-up scheduled",
-            agenda: notes || "Scheduled next action",
-            scheduleOn: nextOn,
-            priority,
-            leadsTimezone: "asiakolkata",
-          },
-        });
-      }
-
-      if (stage) {
-        await axiosInstance.put(`/leads/${leadId}`, { status: stage });
-      }
       if (assignTo) {
         await axiosInstance.put(`/leads/${leadId}`, { assigned_to: assignTo });
       }
@@ -162,13 +160,11 @@ const LogFollowUpModal = ({
       resetForm();
       onOpenChange(false);
       onSaved();
-    } catch (err) {
-      console.error(err);
-      // toast({
-        // title: "Failed to save follow-up",
-        // description: "Please check required fields and try again.",
-        // variant: "destructive",
-      // });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ?? "Failed to save follow-up";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -180,11 +176,14 @@ const LogFollowUpModal = ({
         <DialogHeader>
           <DialogTitle>Log Follow-up</DialogTitle>
           <DialogDescription>
-            Record a touchpoint and schedule the next action.
+            Record what happened and select a disposition. Closing dispositions
+            remove the lead from overdue lists.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           {!presetLeadId && (
             <div className="space-y-2">
               <Label>Search Lead</Label>
@@ -222,7 +221,7 @@ const LogFollowUpModal = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Follow-up Type</Label>
+              <Label>Follow-up Type *</Label>
               <Select value={followupType} onValueChange={setFollowupType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -237,20 +236,70 @@ const LogFollowUpModal = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Follow-up Status</Label>
-              <Select value={activityStatus} onValueChange={setActivityStatus}>
+              <Label>Disposition *</Label>
+              <Select value={disposition} onValueChange={setDisposition}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select disposition" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ACTIVITY_STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {DISPOSITION_OPTIONS.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {disposition === "not_interested" && (
+            <div className="space-y-2">
+              <Label>Reason *</Label>
+              <Select
+                value={notInterestedReason}
+                onValueChange={setNotInterestedReason}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NOT_INTERESTED_REASONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {(disposition === "call_back_later" ||
+            disposition === "interested_hot" ||
+            disposition === "interested_warm") && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>
+                  Next Follow-up Date
+                  {disposition === "call_back_later" ? " *" : ""}
+                </Label>
+                <Input
+                  type="date"
+                  value={nextDate}
+                  onChange={(e) => setNextDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Next Time</Label>
+                <Input
+                  type="time"
+                  value={nextTime}
+                  onChange={(e) => setNextTime(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -258,99 +307,27 @@ const LogFollowUpModal = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="high">Hot</SelectItem>
+                  <SelectItem value="medium">Warm</SelectItem>
+                  <SelectItem value="low">Cold</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Follow-up Date</Label>
-              <Input
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Time</Label>
-              <Input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Update Stage</Label>
-              <Select value={stage} onValueChange={setStage}>
+              <Label>Assign To</Label>
+              <Select value={assignTo} onValueChange={setAssignTo}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Salesperson" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Outcome</Label>
-              <Select value={outcome} onValueChange={setOutcome}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select outcome" />
-                </SelectTrigger>
-                <SelectContent>
-                  {OUTCOME_OPTIONS.map((o) => (
-                    <SelectItem key={o} value={o}>
-                      {o}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Next Follow-up Date</Label>
-              <Input
-                type="date"
-                value={nextDate}
-                onChange={(e) => setNextDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Next Time</Label>
-              <Input
-                type="time"
-                value={nextTime}
-                onChange={(e) => setNextTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Assign To</Label>
-            <Select value={assignTo} onValueChange={setAssignTo}>
-              <SelectTrigger>
-                <SelectValue placeholder="Salesperson" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">

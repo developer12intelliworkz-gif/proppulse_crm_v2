@@ -2,6 +2,11 @@
 
 import pool from "../../database/config.js";
 import {
+  validateFollowUpDisposition,
+  applyDispositionToLead,
+  dispositionClosesLead,
+} from "../utils/followUpDisposition.js";
+import {
   normalizeActivityDate,
   SQL_ACTIVITY_DATE,
   todayInTimeZone,
@@ -259,12 +264,20 @@ export const addActivity = async (req, res) => {
       if (!details.status) details.status = "scheduled";
       if (details.agenda === undefined) details.agenda = "";
     } else if (type === "followup") {
-      if (!details?.followupType || !details?.scheduleOn) {
-        return res
-          .status(400)
-          .json({ error: "Required fields missing for followup" });
+      if (!details?.followupType) {
+        return res.status(400).json({ error: "Follow-up type is required" });
       }
-      if (!details.status) details.status = "scheduled";
+      const dispositionCheck = validateFollowUpDisposition(details);
+      if (!dispositionCheck.valid) {
+        return res.status(400).json({ error: dispositionCheck.error });
+      }
+      details.disposition = dispositionCheck.disposition;
+      if (!details.scheduleOn) {
+        details.scheduleOn = `${todayInTimeZone()}T10:00`;
+      }
+      if (!details.status) details.status = "completed";
+      details.completed = true;
+      details.completedAt = new Date().toISOString();
       if (details.subject === undefined) details.subject = "";
       if (details.agenda === undefined) details.agenda = "";
     } else if (type === "note") {
@@ -295,7 +308,7 @@ export const addActivity = async (req, res) => {
     }
 
     let activityDate = normalizeActivityDate(date);
-    if (!activityDate && type === "note") {
+    if (!activityDate && (type === "note" || type === "followup")) {
       activityDate = todayInTimeZone();
     }
 
@@ -314,6 +327,48 @@ export const addActivity = async (req, res) => {
       ]
     );
     const inserted = result.rows[0];
+
+    if (type === "followup" && details?.disposition) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await applyDispositionToLead(client, id, inserted.id, details);
+        if (
+          details.nextScheduleOn &&
+          !dispositionClosesLead(details.disposition)
+        ) {
+          await client.query(
+            `INSERT INTO public.lead_activities (lead_id, type, description, date, time, agent, details)
+             VALUES ($1, 'followup', $2, $3::date, $4, $5, $6)`,
+            [
+              id,
+              "Next follow-up scheduled",
+              details.nextScheduleOn.slice(0, 10),
+              details.nextScheduleOn.length >= 16
+                ? details.nextScheduleOn.slice(11, 16)
+                : null,
+              agent || null,
+              {
+                followupType: details.followupType || "call",
+                subject: "Call back scheduled",
+                agenda: details.agenda || "",
+                scheduleOn: details.nextScheduleOn,
+                status: "scheduled",
+                priority: details.priority || "medium",
+                leadsTimezone: details.leadsTimezone || "asiakolkata",
+              },
+            ],
+          );
+        }
+        await client.query("COMMIT");
+      } catch (dispErr) {
+        await client.query("ROLLBACK");
+        throw dispErr;
+      } finally {
+        client.release();
+      }
+    }
+
     res.status(201).json({
       ...inserted,
       time: inserted.time ? inserted.time.toString().substring(0, 5) : null,

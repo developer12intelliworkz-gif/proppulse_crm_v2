@@ -443,6 +443,9 @@ export const createTask = async (req, res) => {
   const body = req.body;
   const errors = [];
   if (!body.title?.trim()) errors.push("Title is required");
+  if (!body.due_date?.trim() && !body.due_on?.trim()) {
+    errors.push("Due date is required");
+  }
 
   const assignees = parseAssignees(body.assignees || body["assignees[]"]);
   if (!isManager) {

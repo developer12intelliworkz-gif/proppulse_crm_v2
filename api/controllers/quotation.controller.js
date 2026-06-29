@@ -12,6 +12,8 @@ import {
   buildHierarchyJoin,
   buildDeletedFilter,
   normalizeUnitRow,
+  resolveUnitRatePerUnit,
+  resolveUnitBasicPrice,
 } from "../utils/projectUnitsSchema.js";
 import {
   ALLOWED_CALC_TYPES,
@@ -79,6 +81,16 @@ function getLetterheadPdfPath() {
     process.env.LETTERHEAD_PDF_PATH ||
     "";
   if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const srcLetterhead = path.join(
+    __dirname,
+    "..",
+    "..",
+    "src",
+    "components",
+    "LetterHead.pdf",
+  );
+  if (fs.existsSync(srcLetterhead)) return srcLetterhead;
 
   // Default: api/public/letterhead/LetterHead.pdf (Linux-friendly)
   const repoRelative = path.join(
@@ -475,15 +487,9 @@ export const generateQuotation = async (req, res) => {
   const superBuiltup = asNumberOrNull(unit.super_builtup_area_sqft);
   const carpet = asNumberOrNull(unit.carpet_area_sqft);
 
-  const ratePerUnit =
-    unit.base_rate !== null && unit.base_rate !== undefined
-      ? Number(unit.base_rate)
-      : unit.price !== null && unit.price !== undefined
-      ? Number(unit.price)
-      : 0;
-
-  const totalArea = superBuiltup > 0 ? superBuiltup : (carpet || 0);
-  const basicPrice = round2(totalArea * ratePerUnit);
+  const totalArea = round2((carpet || 0) + (superBuiltup || 0));
+  const ratePerUnit = resolveUnitRatePerUnit(unit);
+  const basicPrice = resolveUnitBasicPrice(unit);
 
   const excludedSet = new Set(
     Array.isArray(excluded_particular_ids)
@@ -687,26 +693,29 @@ export const generateQuotationPdf = async (req, res) => {
     const snapshot = quotation.particulars_snapshot || {};
     const items = Array.isArray(snapshot.items) ? snapshot.items : [];
 
-    // Print over your designed letterhead PDF
     const letterheadPath = getLetterheadPdfPath();
-    if (!fs.existsSync(letterheadPath)) {
-      return res.status(500).json({
-        error: "Letterhead PDF not found",
-        details: `Missing file at: ${letterheadPath}. Upload your letterhead to api/public/letterhead/LetterHead.pdf or set QUOTATION_LETTERHEAD_PATH=/absolute/path/to/LetterHead.pdf`,
-      });
-    }
+    let outDoc;
+    let page;
 
-    const baseDoc = await PDFDocument.load(fs.readFileSync(letterheadPath));
-    const outDoc = await PDFDocument.create();
-    const [page] = await outDoc.copyPages(baseDoc, [0]);
-    outDoc.addPage(page);
+    if (fs.existsSync(letterheadPath)) {
+      const baseDoc = await PDFDocument.load(fs.readFileSync(letterheadPath));
+      outDoc = await PDFDocument.create();
+      [page] = await outDoc.copyPages(baseDoc, [0]);
+      outDoc.addPage(page);
+    } else {
+      outDoc = await PDFDocument.create();
+      page = outDoc.addPage([595.28, 841.89]);
+      console.warn(
+        `Letterhead PDF not found at ${letterheadPath}; generating plain PDF`,
+      );
+    }
 
     const { width: pageWidth, height: pageHeight } = page.getSize();
     const fontRegular = await outDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await outDoc.embedFont(StandardFonts.HelveticaBold);
 
     const marginX = 60;
-    const topStart = 150; // below letterhead header
+    const topStart = fs.existsSync(letterheadPath) ? 150 : 72;
     const lineGap = 14;
     const tableWidth = pageWidth - marginX * 2;
 

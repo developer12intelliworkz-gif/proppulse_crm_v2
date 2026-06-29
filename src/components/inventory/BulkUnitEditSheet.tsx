@@ -433,6 +433,8 @@ const BulkUnitEditSheet = ({
                     <Input
                       type="number"
                       min={0}
+                      step="any"
+                      inputMode="decimal"
                       value={form.area}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, area: e.target.value }))
@@ -469,6 +471,8 @@ const BulkUnitEditSheet = ({
                     <Input
                       type="number"
                       min={0}
+                      step="any"
+                      inputMode="decimal"
                       value={form.super_builtup_area}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -714,6 +718,8 @@ const BulkUnitEditSheet = ({
                             <Input
                               type="number"
                               min={0}
+                              step="any"
+                              inputMode="decimal"
                               value={row.area}
                               onChange={(e) =>
                                 updateRow(unitId, { area: e.target.value })
@@ -726,6 +732,8 @@ const BulkUnitEditSheet = ({
                             <Input
                               type="number"
                               min={0}
+                              step="any"
+                              inputMode="decimal"
                               value={row.super_builtup_area}
                               onChange={(e) =>
                                 updateRow(unitId, {

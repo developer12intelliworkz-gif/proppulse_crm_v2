@@ -452,6 +452,15 @@ function buildUnitReturningColumns(schema) {
 }
 
 export function normalizeUnitRow(row, schema) {
+  const baseRate =
+    row.base_rate !== undefined && row.base_rate !== null
+      ? Number(row.base_rate)
+      : null;
+  const totalPrice =
+    row.total_price !== undefined && row.total_price !== null
+      ? Number(row.total_price)
+      : null;
+
   return {
     ...row,
     carpet_area_sqft:
@@ -471,6 +480,8 @@ export function normalizeUnitRow(row, schema) {
     lead_phone: row.lead_phone || null,
     hierarchy_name: row.hierarchy_name || null,
     hierarchy_type_code: row.hierarchy_type_code || null,
+    base_rate: Number.isFinite(baseRate) ? baseRate : null,
+    total_price: Number.isFinite(totalPrice) ? totalPrice : null,
     price:
       row.price !== undefined && row.price !== null ? Number(row.price) : null,
     has_any_quotation: Boolean(row.has_any_quotation),
@@ -479,6 +490,81 @@ export function normalizeUnitRow(row, schema) {
       superBuiltupCol: schema.superBuiltupCol,
       leadCol: schema.leadCol,
       priceCol: schema.priceCol,
+      baseRateCol: schema.baseRateCol,
+      totalPriceCol: schema.totalPriceCol,
     },
   };
+}
+
+/** Per-unit rate (₹/sqft): prefer base_rate; price column often stores total. */
+export function resolveUnitRatePerUnit(row) {
+  const baseRate =
+    row.base_rate != null && row.base_rate !== ""
+      ? Number(row.base_rate)
+      : null;
+  if (baseRate != null && Number.isFinite(baseRate) && baseRate > 0) {
+    return baseRate;
+  }
+
+  const carpet = Number(row.carpet_area_sqft) || 0;
+  const superBuiltup = Number(row.super_builtup_area_sqft) || 0;
+  const totalArea = carpet + superBuiltup;
+
+  const totalPrice =
+    row.total_price != null && row.total_price !== ""
+      ? Number(row.total_price)
+      : null;
+  if (
+    totalPrice != null &&
+    Number.isFinite(totalPrice) &&
+    totalPrice > 0 &&
+    totalArea > 0
+  ) {
+    return totalPrice / totalArea;
+  }
+
+  const price =
+    row.price != null && row.price !== "" ? Number(row.price) : null;
+  if (price != null && Number.isFinite(price) && price > 0) {
+    if (totalArea > 0 && price > totalArea * 1000) {
+      return price / totalArea;
+    }
+    return price;
+  }
+
+  return 0;
+}
+
+/** Total basic price: (carpet + super built-up) × rate, or stored total. */
+export function resolveUnitBasicPrice(row) {
+  const carpet = Number(row.carpet_area_sqft) || 0;
+  const superBuiltup = Number(row.super_builtup_area_sqft) || 0;
+  const totalArea = carpet + superBuiltup;
+
+  const totalPrice =
+    row.total_price != null && row.total_price !== ""
+      ? Number(row.total_price)
+      : null;
+  if (totalPrice != null && Number.isFinite(totalPrice) && totalPrice > 0) {
+    return Math.round((totalPrice + Number.EPSILON) * 100) / 100;
+  }
+
+  const price =
+    row.price != null && row.price !== "" ? Number(row.price) : null;
+  if (
+    price != null &&
+    Number.isFinite(price) &&
+    price > 0 &&
+    totalArea > 0 &&
+    price > totalArea * 1000
+  ) {
+    return Math.round((price + Number.EPSILON) * 100) / 100;
+  }
+
+  const rate = resolveUnitRatePerUnit(row);
+  if (totalArea > 0 && rate > 0) {
+    return Math.round((totalArea * rate + Number.EPSILON) * 100) / 100;
+  }
+
+  return 0;
 }

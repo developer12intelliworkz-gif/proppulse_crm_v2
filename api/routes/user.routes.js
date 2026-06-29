@@ -51,6 +51,7 @@ router.get("/users", authenticateToken, async (req, res) => {
       FROM users u
       LEFT JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
       WHERE u.deleted_at IS NULL AND (rp.id IS NULL OR rp.deleted_at IS NULL)
+        ${req.query.include_inactive === "true" || req.query.include_inactive === "1" ? "" : "AND u.is_active = TRUE"}
       ORDER BY u.created_at DESC
     `);
     const users = result.rows.map((user) => ({

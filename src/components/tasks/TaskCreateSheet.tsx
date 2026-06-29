@@ -277,11 +277,15 @@ const TaskCreateSheet = ({
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
-      // toast.error("Title is required");
+      toast.error("Subject is required");
+      return;
+    }
+    if (!form.due_date) {
+      toast.error("Due date is required");
       return;
     }
     if (form.assignees.length === 0) {
-      // toast.error("Select at least one assignee");
+      toast.error("Select at least one assignee");
       return;
     }
 

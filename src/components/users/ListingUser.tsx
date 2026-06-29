@@ -73,7 +73,9 @@ const ListingUser = () => {
     setError(null);
 
     try {
-      const response = await axiosInstance.get("/users");
+      const response = await axiosInstance.get("/users", {
+        params: { include_inactive: true },
+      });
 
       const result = response.data;
       // console.log("API Response:", result);

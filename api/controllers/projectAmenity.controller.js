@@ -8,6 +8,34 @@ const projectExists = async (projectId) => {
   return result.rowCount > 0;
 };
 
+const parseAmenityId = (raw) => {
+  const id = Number.parseInt(String(raw), 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+const normalizeName = (name) => String(name ?? "").trim();
+
+const mapRow = (row) => ({
+  id: row.id,
+  project_id: row.project_id,
+  name: row.name,
+  is_selected: Boolean(row.is_selected),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+});
+
+const findAmenityForProject = async (projectId, amenityId) => {
+  const result = await pool.query(
+    `SELECT id, project_id, name, is_selected, created_at, updated_at
+     FROM project_amenities
+     WHERE id = $1 AND project_id = $2`,
+    [amenityId, projectId],
+  );
+  return result.rows[0] ?? null;
+};
+
+const isDuplicateNameError = (error) => error?.code === "23505";
+
 export const getProjectAmenities = async (req, res) => {
   const { projectId } = req.params;
   try {
@@ -16,27 +44,29 @@ export const getProjectAmenities = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT am.id, am.name, am.is_active, pa.id AS link_id, pa.created_at
-       FROM project_amenities pa
-       INNER JOIN amenity_master am ON am.id = pa.amenity_id
-       WHERE pa.project_id = $1 AND am.is_active = true
-       ORDER BY am.name`,
+      `SELECT id, project_id, name, is_selected, created_at, updated_at
+       FROM project_amenities
+       WHERE project_id = $1
+       ORDER BY LOWER(name)`,
       [projectId],
     );
-    res.json({ data: result.rows });
+    res.json({ data: result.rows.map(mapRow) });
   } catch (error) {
     console.error("getProjectAmenities error:", error);
     res.status(500).json({ error: "Failed to fetch project amenities" });
   }
 };
 
-export const linkProjectAmenity = async (req, res) => {
+export const createProjectAmenity = async (req, res) => {
   const { projectId } = req.params;
-  let amenityId = req.body.amenity_id ?? req.body.amenityId;
-  const name = req.body.name;
+  const name = normalizeName(req.body?.name);
+  const isSelected =
+    req.body?.is_selected !== undefined
+      ? Boolean(req.body.is_selected)
+      : true;
 
-  if (!amenityId && !name) {
-    return res.status(400).json({ error: "amenity_id or name is required" });
+  if (!name) {
+    return res.status(400).json({ error: "Amenity name is required" });
   }
 
   try {
@@ -44,105 +74,153 @@ export const linkProjectAmenity = async (req, res) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    if (!amenityId && name) {
-      const trimmedName = name.trim();
-      const existing = await pool.query(
-        "SELECT id FROM amenity_master WHERE LOWER(name) = LOWER($1)",
-        [trimmedName],
-      );
-      if (existing.rowCount > 0) {
-        amenityId = existing.rows[0].id;
-      } else {
-        const createResult = await pool.query(
-          "INSERT INTO amenity_master (name) VALUES ($1) RETURNING id",
-          [trimmedName],
-        );
-        amenityId = createResult.rows[0].id;
-      }
-    }
-
-    const amenityCheck = await pool.query(
-      "SELECT id, name FROM amenity_master WHERE id = $1 AND is_active = true",
-      [amenityId],
-    );
-    if (amenityCheck.rowCount === 0) {
-      return res.status(404).json({ error: "Amenity not found" });
-    }
-    const amenityName = amenityCheck.rows[0].name;
-
     const result = await pool.query(
-      `INSERT INTO project_amenities (project_id, amenity_id)
-       VALUES ($1, $2)
-       ON CONFLICT (project_id, amenity_id) DO NOTHING
-       RETURNING id, project_id, amenity_id, created_at`,
-      [projectId, amenityId],
+      `INSERT INTO project_amenities (project_id, name, is_selected)
+       VALUES ($1, $2, $3)
+       RETURNING id, project_id, name, is_selected, created_at, updated_at`,
+      [projectId, name, isSelected],
     );
 
     res.status(201).json({
-      data: {
-        id: amenityId,
-        project_id: projectId,
-        name: amenityName,
-        is_selected: true,
-      },
-      message: "Amenity linked to project",
+      data: mapRow(result.rows[0]),
+      message: "Amenity created",
     });
   } catch (error) {
-    console.error("linkProjectAmenity error:", error);
-    res.status(500).json({ error: "Failed to link amenity" });
+    if (isDuplicateNameError(error)) {
+      return res
+        .status(409)
+        .json({ error: "This amenity already exists for this project" });
+    }
+    console.error("createProjectAmenity error:", error);
+    res.status(500).json({ error: "Failed to create amenity" });
   }
 };
 
-export const unlinkProjectAmenity = async (req, res) => {
-  const { projectId, amenityId } = req.params;
-  let client;
+export const updateProjectAmenity = async (req, res) => {
+  const { projectId } = req.params;
+  const amenityId = parseAmenityId(req.params.amenityId);
+
+  if (!amenityId) {
+    return res.status(400).json({ error: "Invalid amenity ID" });
+  }
+
+  const name =
+    req.body?.name !== undefined ? normalizeName(req.body.name) : undefined;
+  const isSelected =
+    req.body?.is_selected !== undefined
+      ? Boolean(req.body.is_selected)
+      : undefined;
+
+  if (name === "") {
+    return res.status(400).json({ error: "Amenity name cannot be empty" });
+  }
+  if (name === undefined && isSelected === undefined) {
+    return res.status(400).json({ error: "No fields to update" });
+  }
+
   try {
     if (!(await projectExists(projectId))) {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    client = await pool.connect();
-    await client.query("BEGIN");
-
-    const unlinkResult = await client.query(
-      `DELETE FROM project_amenities
-       WHERE project_id = $1 AND amenity_id = $2
-       RETURNING id`,
-      [projectId, amenityId],
-    );
-    if (unlinkResult.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Project amenity link not found" });
+    const existing = await findAmenityForProject(projectId, amenityId);
+    if (!existing) {
+      return res.status(404).json({ error: "Amenity not found for this project" });
     }
 
-    const remainingLinks = await client.query(
-      `SELECT COUNT(*)::int AS count FROM project_amenities WHERE amenity_id = $1`,
-      [amenityId],
-    );
-    const linkCount = remainingLinks.rows[0]?.count ?? 0;
+    const updates = [];
+    const values = [];
+    let index = 1;
 
-    let deletedMaster = false;
-    if (linkCount === 0) {
-      const masterResult = await client.query(
-        `DELETE FROM amenity_master WHERE id = $1 RETURNING id`,
-        [amenityId],
-      );
-      deletedMaster = masterResult.rowCount > 0;
+    if (name !== undefined) {
+      updates.push(`name = $${index++}`);
+      values.push(name);
     }
+    if (isSelected !== undefined) {
+      updates.push(`is_selected = $${index++}`);
+      values.push(isSelected);
+    }
+    updates.push(`updated_at = NOW()`);
 
-    await client.query("COMMIT");
+    values.push(amenityId, projectId);
+
+    const result = await pool.query(
+      `UPDATE project_amenities
+       SET ${updates.join(", ")}
+       WHERE id = $${index++} AND project_id = $${index}
+       RETURNING id, project_id, name, is_selected, created_at, updated_at`,
+      values,
+    );
 
     res.json({
-      message: deletedMaster
-        ? "Amenity removed from project and deleted"
-        : "Amenity removed from project",
-      deletedMaster,
+      data: mapRow(result.rows[0]),
+      message: "Amenity updated",
     });
   } catch (error) {
-    if (client) await client.query("ROLLBACK");
-    console.error("unlinkProjectAmenity error:", error);
-    res.status(500).json({ error: "Failed to remove amenity from project" });
-  } finally {
-    if (client) client.release();
+    if (isDuplicateNameError(error)) {
+      return res
+        .status(409)
+        .json({ error: "This amenity already exists for this project" });
+    }
+    console.error("updateProjectAmenity error:", error);
+    res.status(500).json({ error: "Failed to update amenity" });
+  }
+};
+
+export const deleteProjectAmenity = async (req, res) => {
+  const { projectId } = req.params;
+  const amenityId = parseAmenityId(req.params.amenityId);
+
+  if (!amenityId) {
+    return res.status(400).json({ error: "Invalid amenity ID" });
+  }
+
+  try {
+    if (!(await projectExists(projectId))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM project_amenities
+       WHERE id = $1 AND project_id = $2
+       RETURNING id`,
+      [amenityId, projectId],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Amenity not found for this project" });
+    }
+
+    res.json({ message: "Amenity deleted", id: result.rows[0].id });
+  } catch (error) {
+    console.error("deleteProjectAmenity error:", error);
+    res.status(500).json({ error: "Failed to delete amenity" });
+  }
+};
+
+export const setAllProjectAmenitySelection = async (req, res) => {
+  const { projectId } = req.params;
+  const isSelected = Boolean(req.body?.is_selected);
+
+  try {
+    if (!(await projectExists(projectId))) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const result = await pool.query(
+      `UPDATE project_amenities
+       SET is_selected = $1, updated_at = NOW()
+       WHERE project_id = $2
+       RETURNING id, project_id, name, is_selected, created_at, updated_at`,
+      [isSelected, projectId],
+    );
+
+    res.json({
+      data: result.rows.map(mapRow),
+      message: isSelected ? "All amenities selected" : "All amenities deselected",
+    });
+  } catch (error) {
+    console.error("setAllProjectAmenitySelection error:", error);
+    res.status(500).json({ error: "Failed to update amenity selection" });
   }
 };
