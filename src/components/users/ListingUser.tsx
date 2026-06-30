@@ -323,7 +323,7 @@ const ListingUser = () => {
                             <Shield size={9} />
                             {user.role}
                           </span>
-                          {currentUser?.role === "admin" ? (
+                          {hasPermission("manage_users") ? (
                             <button
                               onClick={() => handleToggleStatus(user.id, user.status)}
                               title={user.status ? "Click to deactivate" : "Click to activate"}
@@ -362,7 +362,7 @@ const ListingUser = () => {
                         <Calendar size={10} />
                         {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never logged in"}
                       </div>
-                      {currentUser?.role === "admin" && (
+                      {hasPermission("manage_users") && (
                         <div style={{ display: "flex", gap: 4 }}>
                           <Dialog>
                             <DialogTrigger asChild>
@@ -446,7 +446,7 @@ const ListingUser = () => {
                     <span style={{ ...getRoleStyle(user.role), fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 3, width: "fit-content" }}>
                       <Shield size={9} />{user.role}
                     </span>
-                    {currentUser?.role === "admin" ? (
+                    {hasPermission("manage_users") ? (
                       <button
                         onClick={() => handleToggleStatus(user.id, user.status)}
                         title={user.status ? "Click to deactivate" : "Click to activate"}
@@ -470,7 +470,7 @@ const ListingUser = () => {
                   <div style={{ fontSize: 11, color: "#8A92B2" }}>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</div>
                   {/* Actions */}
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
-                    {currentUser?.role === "admin" && (
+                    {hasPermission("manage_users") && (
                       <>
                         <Dialog>
                           <DialogTrigger asChild>

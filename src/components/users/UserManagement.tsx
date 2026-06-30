@@ -421,7 +421,7 @@ const UserManagement = () => {
                     Last login: {new Date(user.lastLogin).toLocaleDateString()}
                   </div>
                   <div className="flex items-center">
-                    {currentUser?.role === "admin" && (
+                    {hasPermission("manage_users") && (
                       <div className="flex space-x-2">
                         <Dialog>
                           <DialogTrigger asChild>

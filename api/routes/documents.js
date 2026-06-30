@@ -25,7 +25,13 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 });
 
+import { requirePermission } from "../middleware/authorize.js";
+
 const router = express.Router();
+
+// Apply top-level authorization to all folder/document endpoints
+router.use(authenticateToken);
+router.use(requirePermission("view_settings"));
 
 // ──────────────────────────────────────────────────
 // Create Folder

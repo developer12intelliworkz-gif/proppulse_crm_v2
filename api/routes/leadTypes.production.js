@@ -11,6 +11,8 @@ import {
   deleteLeadType,
 } from "../controllers/leadType.controller.js";
 
+import { requirePermission } from "../middleware/authorize.js";
+
 const router = express.Router();
 
 const uploadDir = path.join(process.cwd(), "public", "lead_icons");
@@ -33,12 +35,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Routes — reorder MUST be registered before /:id
-router.get("/", authenticateToken, getAllLeadTypes);
-router.post("/", authenticateToken, upload.single("logo_image"), createLeadType);
-router.post("/reorder", authenticateToken, reorderLeadTypes);
-router.put("/reorder", authenticateToken, reorderLeadTypes);
-router.put("/:id", authenticateToken, upload.single("logo_image"), updateLeadType);
-router.delete("/:id", authenticateToken, deleteLeadType);
+router.get("/", authenticateToken, requirePermission("view_leads"), getAllLeadTypes);
+router.post("/", authenticateToken, requirePermission("manage_lead_types"), upload.single("logo_image"), createLeadType);
+router.post("/reorder", authenticateToken, requirePermission("manage_lead_types"), reorderLeadTypes);
+router.put("/reorder", authenticateToken, requirePermission("manage_lead_types"), reorderLeadTypes);
+router.put("/:id", authenticateToken, requirePermission("manage_lead_types"), upload.single("logo_image"), updateLeadType);
+router.delete("/:id", authenticateToken, requirePermission("manage_lead_types"), deleteLeadType);
 
 // NO static here — handled in server.mjs
 

@@ -93,9 +93,7 @@ export const refreshPermissions = createAsyncThunk(
     const state = getState() as { auth: AuthState };
     const user = userOverride ?? state.auth.user;
 
-    if (user?.role?.toLowerCase() === "admin") {
-      return { admin: INITIAL_ROLE_PERMISSIONS.admin };
-    }
+    // Enforce loading permissions from backend for all roles including admin
 
     const response = await axiosInstance.get("/roles-permissions");
     const rolesData = Object.entries(response.data).map(
@@ -193,7 +191,8 @@ export const selectHasPermission =
   (permission: string) => (state: { auth: AuthState }) => {
     const { user, rolePermissions } = state.auth;
     if (!user?.role) return false;
-    const perms = rolePermissions[user.role.toLowerCase()] || [];
+    const normalizedRole = user.role.toLowerCase().trim();
+    const perms = rolePermissions[normalizedRole] || [];
     return Array.isArray(perms) ? perms.includes(permission) : false;
   };
 

@@ -291,7 +291,7 @@ const AppRoutes = () => {
         <Route
           path="/settings/roles-and-responsibilities"
           element={
-            <ProtectedRoute requiredPermission="view_settings">
+            <ProtectedRoute requiredPermission="view_roles">
               <Layout>
                 <RolesandResponse />
               </Layout>
@@ -301,7 +301,7 @@ const AppRoutes = () => {
         <Route
           path="/settings/lead-types"
           element={
-            <ProtectedRoute requiredPermission="view_settings">
+            <ProtectedRoute requiredPermission="manage_lead_types">
               <Layout>
                 <LeadType />
               </Layout>
@@ -331,7 +331,7 @@ const AppRoutes = () => {
         <Route
           path="/settings/import"
           element={
-            <ProtectedRoute requiredPermission="view_settings">
+            <ProtectedRoute requiredPermission="import_leads">
               <Layout>
                 <Imports />
               </Layout>
@@ -341,7 +341,7 @@ const AppRoutes = () => {
         <Route
           path="/settings/download"
           element={
-            <ProtectedRoute requiredPermission="view_settings">
+            <ProtectedRoute requiredPermission="export_leads">
               <Layout>
                 <Download />
               </Layout>

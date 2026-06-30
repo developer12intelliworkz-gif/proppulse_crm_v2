@@ -60,73 +60,73 @@ const permissionMap: {
     View: "view_leads",
     Create: "create_leads",
     Update: "assign_leads",
-    Delete: null,
+    Delete: "delete_leads",
     Import: "import_leads",
     Export: "export_leads",
   },
   Projects: {
     View: "view_projects",
     Create: "create_projects",
-    Update: ["edit_projects", "manage_project"],
+    Update: "edit_projects",
     Delete: "delete_projects",
     Import: "import_projects",
     Export: "export_projects",
   },
   Users: {
-    View: null,
+    View: "manage_users",
     Create: "create_users",
     Update: "manage_users",
-    Delete: null,
+    Delete: "manage_users",
     Import: "import_users",
     Export: "export_users",
   },
   Reports: {
     View: "view_reports",
-    Create: null,
-    Update: null,
-    Delete: null,
-    Import: null,
+    Create: "view_reports",
+    Update: "view_reports",
+    Delete: "view_reports",
+    Import: "view_reports",
     Export: "export_reports",
   },
   Followups: {
     View: "view_followups",
-    Create: null,
-    Update: null,
-    Delete: null,
-    Import: null,
-    Export: null,
+    Create: "view_followups",
+    Update: "view_followups",
+    Delete: "view_followups",
+    Import: "view_followups",
+    Export: "view_followups",
   },
   Settings: {
     View: "view_settings",
-    Create: null,
-    Update: null,
-    Delete: null,
-    Import: null,
-    Export: null,
+    Create: "view_settings",
+    Update: "view_settings",
+    Delete: "view_settings",
+    Import: "view_settings",
+    Export: "view_settings",
   },
   Tasks: {
     View: "view_tasks",
-    Create: null,
-    Update: null,
-    Delete: null,
-    Import: null,
-    Export: null,
+    Create: "view_tasks",
+    Update: "view_tasks",
+    Delete: "view_tasks",
+    Import: "view_tasks",
+    Export: "view_tasks",
   },
   Roles: {
     View: "view_roles",
     Create: "create_roles",
     Update: "update_roles",
     Delete: "delete_roles",
-    Import: null,
-    Export: null,
+    Import: "view_roles",
+    Export: "view_roles",
   },
   "Lead Sources": {
-    View: null,
+    View: "manage_lead_types",
     Create: "create_lead_types",
     Update: "manage_lead_types",
-    Delete: null,
-    Import: null,
-    Export: null,
+    Delete: "manage_lead_types",
+    Import: "manage_lead_types",
+    Export: "manage_lead_types",
   },
 };
 
@@ -330,138 +330,12 @@ const RolesandResponse = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              {hasPermission("manage_users") && (
-              <Dialog
-                open={isCreateDialogOpen}
-                onOpenChange={handleDialogOpenChange}
-              >
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Role
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl w-full">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {isEditMode ? "Edit Role" : "Create New Role"}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Role Name
-                      </label>
-                      <Input
-                        value={newRoleName}
-                        onChange={(e) => setNewRoleName(e.target.value)}
-                        placeholder="Enter role name"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Permissions
-                      </label>
-                      <div className="mt-2 overflow-x-auto">
-                        <table className="w-full min-w-max">
-                          <thead>
-                            <tr>
-                              <th className="text-left pb-2">Permission</th>
-                              {permissionActions.map((action) => (
-                                <th
-                                  key={action}
-                                  className="text-left pb-2 px-2"
-                                >
-                                  {action}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {permissionCategories.map((category) => (
-                              <tr key={category} className="py-2">
-                                <td className="text-left py-2 pr-2 font-medium">
-                                  {category}
-                                </td>
-                                {permissionActions.map((action) => {
-                                  const perm = permissionMap[category][action];
-                                  return (
-                                    <td key={action} className="py-2 px-2">
-                                      <Checkbox
-                                        id={`${category}-${action}`}
-                                        checked={
-                                          perm !== null &&
-                                          (Array.isArray(perm)
-                                            ? perm.every((p) =>
-                                                newRolePermissions.includes(p)
-                                              )
-                                            : newRolePermissions.includes(perm))
-                                        }
-                                        onCheckedChange={(checked) => {
-                                          if (perm === null) return;
-                                          const required = Array.isArray(perm)
-                                            ? perm
-                                            : [perm];
-                                          setNewRolePermissions((prev) => {
-                                            let newPerms = [...prev];
-                                            if (checked) {
-                                              newPerms = [
-                                                ...new Set([
-                                                  ...newPerms,
-                                                  ...required,
-                                                ]),
-                                              ];
-                                            } else {
-                                              newPerms = newPerms.filter(
-                                                (p) => !required.includes(p)
-                                              );
-                                            }
-                                            return newPerms;
-                                          });
-                                        }}
-                                        disabled={perm === null}
-                                      />
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="active"
-                        checked={newIsActive}
-                        onCheckedChange={setNewIsActive}
-                      />
-                      <label
-                        htmlFor="active"
-                        className="text-sm font-medium text-gray-700"
-                      >
-                        Active
-                      </label>
-                    </div>
-                    <div className="flex justify-end gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          resetForm();
-                          setIsCreateDialogOpen(false);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateOrEditRole}>
-                        {isEditMode ? "Update Role" : "Create Role"}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
+              {hasPermission("create_roles") && (
+                <Button onClick={() => { setIsEditMode(false); setIsCreateDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Role
+                </Button>
+              )}
               <Button variant="outline" onClick={() => navigate("/dashboard")}>
                 <Home className="w-4 h-4" />
               </Button>
@@ -473,6 +347,137 @@ const RolesandResponse = () => {
           </div>
         </div>
       </div>
+      {(hasPermission("create_roles") || hasPermission("update_roles")) && (
+        <Dialog
+          open={isCreateDialogOpen}
+          onOpenChange={handleDialogOpenChange}
+        >
+          <DialogContent className="max-w-2xl w-full">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditMode ? "Edit Role" : "Create New Role"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Role Name
+                </label>
+                <Input
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="Enter role name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Permissions
+                </label>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full min-w-max">
+                    <thead>
+                      <tr>
+                        <th className="text-left pb-2">Permission</th>
+                        {permissionActions.map((action) => (
+                          <th
+                            key={action}
+                            className="text-left pb-2 px-2"
+                          >
+                            {action}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {permissionCategories.map((category) => (
+                        <tr key={category} className="py-2">
+                          <td className="text-left py-2 pr-2 font-medium">
+                            {category}
+                          </td>
+                          {permissionActions.map((action) => {
+                            const perm = permissionMap[category][action];
+                            return (
+                              <td key={action} className="py-2 px-2">
+                                <Checkbox
+                                  id={`${category}-${action}`}
+                                  checked={
+                                    perm !== null &&
+                                    (Array.isArray(perm)
+                                      ? perm.every((p) =>
+                                          newRolePermissions.includes(p)
+                                        )
+                                      : newRolePermissions.includes(perm))
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    if (perm === null) return;
+                                    const required = Array.isArray(perm)
+                                      ? perm
+                                      : [perm];
+                                    setNewRolePermissions((prev) => {
+                                      let newPerms = [...prev];
+                                      if (checked) {
+                                        newPerms = [
+                                          ...new Set([
+                                            ...newPerms,
+                                            ...required,
+                                          ]),
+                                        ];
+                                      } else {
+                                        newPerms = newPerms.filter(
+                                          (p) => !required.includes(p)
+                                        );
+                                      }
+                                      return newPerms;
+                                    });
+                                  }}
+                                  disabled={
+                                    perm === null ||
+                                    ((newRoleName.toLowerCase().trim() === "admin" ||
+                                      newRoleName.toLowerCase().trim() === "super admin") &&
+                                      (category === "Settings" || category === "Roles"))
+                                  }
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="active"
+                  checked={newIsActive}
+                  onCheckedChange={setNewIsActive}
+                />
+                <label
+                  htmlFor="active"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Active
+                </label>
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    resetForm();
+                    setIsCreateDialogOpen(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateOrEditRole}>
+                  {isEditMode ? "Update Role" : "Create Role"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       <div className="p-6">
         <div className="mx-auto flex flex-col">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -493,68 +498,72 @@ const RolesandResponse = () => {
                         </CardDescription>
                       </div>
                     </div>
-                    {currentUser?.role === "admin" && (
+                    {(hasPermission("update_roles") || hasPermission("delete_roles")) && (
                       <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditRole(role)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Dialog
-                          open={
-                            isDeleteDialogOpen && selectedRole?.id === role.id
-                          }
-                          onOpenChange={(open) => {
-                            setIsDeleteDialogOpen(open);
-                            if (!open) {
-                              setSelectedRole(null);
-                            } else {
-                              setSelectedRole(role);
+                        {hasPermission("update_roles") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditRole(role)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {hasPermission("delete_roles") && (
+                          <Dialog
+                            open={
+                              isDeleteDialogOpen && selectedRole?.id === role.id
                             }
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Confirm Delete</DialogTitle>
-                            </DialogHeader>
-                            <DialogDescription>
-                              Confirm deletion of the selected role.
-                            </DialogDescription>
-                            <div className="space-y-4 py-4">
-                              <p>
-                                Are you sure you want to delete the role{" "}
-                                <strong>{role.name}</strong>?
-                              </p>
-                              <div className="flex justify-end gap-3">
-                                <Button
-                                  variant="outline"
-                                  onClick={() => setIsDeleteDialogOpen(false)}
-                                  className="w-full md:w-auto"
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => handleDeleteRole(role.id)}
-                                  className="w-full md:w-auto"
-                                >
-                                  Confirm Delete
-                                </Button>
+                            onOpenChange={(open) => {
+                              setIsDeleteDialogOpen(open);
+                              if (!open) {
+                                setSelectedRole(null);
+                              } else {
+                                setSelectedRole(role);
+                              }
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Confirm Delete</DialogTitle>
+                              </DialogHeader>
+                              <DialogDescription>
+                                Confirm deletion of the selected role.
+                              </DialogDescription>
+                              <div className="space-y-4 py-4">
+                                <p>
+                                  Are you sure you want to delete the role{" "}
+                                  <strong>{role.name}</strong>?
+                                </p>
+                                <div className="flex justify-end gap-3">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setIsDeleteDialogOpen(false)}
+                                    className="w-full md:w-auto"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    onClick={() => handleDeleteRole(role.id)}
+                                    className="w-full md:w-auto"
+                                  >
+                                    Confirm Delete
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                       </div>
                     )}
                   </div>

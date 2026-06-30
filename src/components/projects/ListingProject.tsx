@@ -122,8 +122,8 @@ const ListingProject = () => {
   const activeCount = projects.filter(p => p.is_active).length;
   const avgRate = totalUnits ? Math.round((soldUnits / totalUnits) * 100) : 0;
 
-  if (!hasPermission("manage_project")) {
-    return <div style={{ textAlign: "center", padding: "48px 24px", color: "#4B5280", fontSize: 14 }}>You don't have permission to manage projects.</div>;
+  if (!hasPermission("view_projects")) {
+    return <div style={{ textAlign: "center", padding: "48px 24px", color: "#4B5280", fontSize: 14 }}>You don't have permission to view projects.</div>;
   }
 
   return (
@@ -305,24 +305,36 @@ const ListingProject = () => {
 
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                         <button
-                          onClick={() => handleToggleActive(project)}
-                          title="Click to toggle status"
+                          onClick={() => hasPermission("edit_projects") && handleToggleActive(project)}
+                          disabled={!hasPermission("edit_projects")}
+                          title={hasPermission("edit_projects") ? "Click to toggle status" : "Status"}
                           style={{
                             fontSize: 10,
                             padding: "3px 8px",
                             borderRadius: 20,
                             fontWeight: 600,
                             border: "none",
-                            cursor: "pointer",
+                            cursor: hasPermission("edit_projects") ? "pointer" : "default",
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
                             background: project.is_active ? "#ECFDF5" : "#F1F5F9",
                             color: project.is_active ? "#059669" : "#64748B",
                             transition: "all 0.15s",
+                            opacity: hasPermission("edit_projects") ? 1 : 0.85
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; e.currentTarget.style.color = project.is_active ? "#DC2626" : "#059669"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = project.is_active ? "#ECFDF5" : "#F1F5F9"; e.currentTarget.style.color = project.is_active ? "#059669" : "#64748B"; }}
+                          onMouseEnter={e => { 
+                            if (hasPermission("edit_projects")) {
+                              e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; 
+                              e.currentTarget.style.color = project.is_active ? "#DC2626" : "#059669"; 
+                            }
+                          }}
+                          onMouseLeave={e => { 
+                            if (hasPermission("edit_projects")) {
+                              e.currentTarget.style.background = project.is_active ? "#ECFDF5" : "#F1F5F9"; 
+                              e.currentTarget.style.color = project.is_active ? "#059669" : "#64748B"; 
+                            }
+                          }}
                         >
                           <span style={{
                             width: 5,
@@ -333,37 +345,45 @@ const ListingProject = () => {
                           {project.is_active ? "Active" : "Inactive"}
                         </button>
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              color: "hsl(var(--muted-foreground))",
-                              padding: 4,
-                              borderRadius: 4
-                            }}>
-                              <MoreVertical size={15} />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" style={{ minWidth: 150 }}>
-                            <DropdownMenuItem onClick={() => navigate(`/projects/edit/${project.id}/step1`)}>
-                              <Edit size={13} style={{ marginRight: 8 }} /> Edit Project
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleActive(project)}>
-                              <Archive size={13} style={{ marginRight: 8 }} /> {project.is_active ? "Archive Project" : "Activate Project"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              style={{ color: "#EF4444" }}
-                              onClick={() => {
-                                setSelectedProject(project);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 size={13} style={{ marginRight: 8 }} /> Delete Project
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {(hasPermission("edit_projects") || hasPermission("delete_projects")) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button style={{
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                color: "hsl(var(--muted-foreground))",
+                                padding: 4,
+                                borderRadius: 4
+                              }}>
+                                <MoreVertical size={15} />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" style={{ minWidth: 150 }}>
+                              {hasPermission("edit_projects") && (
+                                <>
+                                  <DropdownMenuItem onClick={() => navigate(`/projects/edit/${project.id}/step1`)}>
+                                    <Edit size={13} style={{ marginRight: 8 }} /> Edit Project
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleActive(project)}>
+                                    <Archive size={13} style={{ marginRight: 8 }} /> {project.is_active ? "Archive Project" : "Activate Project"}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {hasPermission("delete_projects") && (
+                                <DropdownMenuItem
+                                  style={{ color: "#EF4444" }}
+                                  onClick={() => {
+                                    setSelectedProject(project);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 size={13} style={{ marginRight: 8 }} /> Delete Project
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
 
@@ -437,25 +457,27 @@ const ListingProject = () => {
                       <Shield size={12} color="hsl(var(--muted-foreground))" />
                       RERA: {project.rera_project_id || "N/A"}
                     </div>
-                    
+
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {isInitialSetupComplete(project) && (
                         <>
-                          <button
-                            onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
-                            style={{
-                              padding: "0 12px", height: 32, borderRadius: 8,
-                              border: "1.5px solid var(--theme-color)", background: "transparent", color: "var(--theme-color)",
-                              display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
-                              fontSize: 12, fontWeight: 700, transition: "all 0.12s"
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.08)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}
-                            title="Open Layout Builder"
-                          >
-                            <Building2 size={13} />
-                            Layout
-                          </button>
+                          {hasPermission("manage_project") && (
+                            <button
+                              onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
+                              style={{
+                                padding: "0 12px", height: 32, borderRadius: 8,
+                                border: "1.5px solid var(--theme-color)", background: "transparent", color: "var(--theme-color)",
+                                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                                fontSize: 12, fontWeight: 700, transition: "all 0.12s"
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.08)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}
+                              title="Open Layout Builder"
+                            >
+                              <Building2 size={13} />
+                              Layout
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/projects/${project.id}/availability`)}
                             style={{
@@ -474,7 +496,7 @@ const ListingProject = () => {
                         </>
                       )}
 
-                      {currentUser?.role === "admin" && (
+                      {hasPermission("delete_projects") && (
                         <Dialog open={isDeleteDialogOpen && selectedProject?.id===project.id} onOpenChange={open=>{setIsDeleteDialogOpen(open);if(!open)setSelectedProject(null);}}>
                           <DialogContent style={{maxWidth:420}}>
                             <DialogHeader><DialogTitle>Delete Project</DialogTitle></DialogHeader>
@@ -521,11 +543,22 @@ const ListingProject = () => {
                     <div>
                       <div style={{ fontSize:13, fontWeight:600, color:"hsl(var(--foreground))" }}>{project.name}</div>
                       <button
-                        onClick={() => handleToggleActive(project)}
-                        title="Click to toggle status"
-                        style={{ fontSize:10, padding:"3px 9px", borderRadius:20, background:project.is_active?"#ECFDF5":"hsl(var(--secondary))", color:project.is_active?"#059669":"hsl(var(--muted-foreground))", fontWeight:600, border:"none", cursor:"pointer", transition:"all 0.15s" }}
-                        onMouseEnter={e => { e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; e.currentTarget.style.color = project.is_active ? "#DC2626" : "#059669"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = project.is_active ? "#ECFDF5" : (project.is_active?"#ECFDF5":"hsl(var(--secondary))"); e.currentTarget.style.color = project.is_active ? "#059669" : "hsl(var(--muted-foreground))"; }}
+                        onClick={() => hasPermission("edit_projects") && handleToggleActive(project)}
+                        disabled={!hasPermission("edit_projects")}
+                        title={hasPermission("edit_projects") ? "Click to toggle status" : "Status"}
+                        style={{ fontSize:10, padding:"3px 9px", borderRadius:20, background:project.is_active?"#ECFDF5":"hsl(var(--secondary))", color:project.is_active?"#059669":"hsl(var(--muted-foreground))", fontWeight:600, border:"none", cursor:hasPermission("edit_projects")?"pointer":"default", transition:"all 0.15s", opacity:hasPermission("edit_projects")?1:0.85 }}
+                        onMouseEnter={e => { 
+                          if (hasPermission("edit_projects")) {
+                            e.currentTarget.style.background = project.is_active ? "#FEF2F2" : "#ECFDF5"; 
+                            e.currentTarget.style.color = project.is_active ? "#059669" : "#059669"; 
+                          }
+                        }}
+                        onMouseLeave={e => { 
+                          if (hasPermission("edit_projects")) {
+                            e.currentTarget.style.background = project.is_active ? "#ECFDF5" : (project.is_active?"#ECFDF5":"hsl(var(--secondary))"); 
+                            e.currentTarget.style.color = project.is_active ? "#059669" : "hsl(var(--muted-foreground))"; 
+                          }
+                        }}
                       >
                         {project.is_active?"● Active":"○ Inactive"}
                       </button>
@@ -542,16 +575,18 @@ const ListingProject = () => {
                   <div style={{ padding:"8px 12px", display:"flex", alignItems:"center", gap:5 }}>
                     {isInitialSetupComplete(project) && (
                       <>
-                        <button
-                          onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
-                          style={{ padding: "0 8px", height: 28, borderRadius: 6, border: "1.5px solid var(--theme-color)", background: "var(--theme-color)", color: "#fff", display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 10, fontWeight: 600 }}
-                          onMouseEnter={e => { e.currentTarget.style.background="var(--theme-color-hover)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background="var(--theme-color)"; }}
-                          title="Open Layout Builder"
-                        >
-                          <Building2 size={11} />
-                          Layout
-                        </button>
+                        {hasPermission("manage_project") && (
+                          <button
+                            onClick={() => navigate(`/project-setup?projectId=${project.id}`)}
+                            style={{ padding: "0 8px", height: 28, borderRadius: 6, border: "1.5px solid var(--theme-color)", background: "var(--theme-color)", color: "#fff", display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 10, fontWeight: 600 }}
+                            onMouseEnter={e => { e.currentTarget.style.background="var(--theme-color-hover)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background="var(--theme-color)"; }}
+                            title="Open Layout Builder"
+                          >
+                            <Building2 size={11} />
+                            Layout
+                          </button>
+                        )}
                         <button
                           onClick={() => navigate(`/projects/${project.id}/availability`)}
                           style={{ padding: "0 8px", height: 28, borderRadius: 6, border: "1.5px solid #059669", background: "#059669", color: "#fff", display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 10, fontWeight: 600 }}
@@ -564,12 +599,14 @@ const ListingProject = () => {
                         </button>
                       </>
                     )}
-                    <button onClick={()=>navigate(`/projects/edit/${project.id}/step1`)}
-                      style={{ width:28,height:28,borderRadius:6,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--theme-color)";e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.1)";}}
-                      onMouseLeave={e=>{e.currentTarget.style.borderColor="hsl(var(--border))";e.currentTarget.style.background="hsl(var(--card))";}}
-                      title="Edit"><Edit size={12} color="var(--theme-color)"/></button>
-                    {currentUser?.role === "admin" && (
+                    {hasPermission("edit_projects") && (
+                      <button onClick={()=>navigate(`/projects/edit/${project.id}/step1`)}
+                        style={{ width:28,height:28,borderRadius:6,border:"1px solid hsl(var(--border))",background:"hsl(var(--card))",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--theme-color)";e.currentTarget.style.background="rgba(var(--theme-color-rgb), 0.1)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor="hsl(var(--border))";e.currentTarget.style.background="hsl(var(--card))";}}
+                        title="Edit"><Edit size={12} color="var(--theme-color)"/></button>
+                    )}
+                    {hasPermission("delete_projects") && (
                       <Dialog open={isDeleteDialogOpen&&selectedProject?.id===project.id} onOpenChange={open=>{setIsDeleteDialogOpen(open);if(!open)setSelectedProject(null);}}>
                         <DialogTrigger asChild>
                           <button onClick={()=>{setSelectedProject(project);setIsDeleteDialogOpen(true);}}
@@ -580,7 +617,7 @@ const ListingProject = () => {
                         </DialogTrigger>
                         <DialogContent style={{maxWidth:420}}>
                           <DialogHeader><DialogTitle>Delete Project</DialogTitle></DialogHeader>
-                          <p style={{fontSize:13,color:"#4B5280",margin:"10px 0 20px"}}>Delete <strong>{project.name}</strong>? This cannot be undone.</p>
+                          <p style={{fontSize:13,color:"#4B5280",margin:"10px 0 20px"}}>Delete <strong>{project?.name}</strong>? This cannot be undone.</p>
                           <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
                             <Button variant="outline" onClick={()=>setIsDeleteDialogOpen(false)}>Cancel</Button>
                             <Button variant="destructive" onClick={()=>handleDeleteProject(project.id)}>Delete</Button>

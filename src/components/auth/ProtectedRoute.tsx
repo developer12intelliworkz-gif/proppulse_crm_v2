@@ -27,11 +27,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredPermission === "view_leads" && isLeadsAccessRole(user?.role)) {
-    return <>{children}</>;
-  }
-
-  // Normal permission check for everything else
+  // Normal permission check
   if (requiredPermission && !hasPermission(requiredPermission)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

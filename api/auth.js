@@ -22,13 +22,14 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    // Find user by email
+    // Find user by email and join roles_permissions to get their role
     const userQuery = `
-      SELECT *
-      FROM users
-      WHERE email = $1
-      AND is_active = true
-      AND deleted_at IS NULL
+      SELECT u.*, rp.role_name AS role
+      FROM users u
+      LEFT JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
+      WHERE u.email = $1
+      AND u.is_active = true
+      AND u.deleted_at IS NULL
     `;
     const userResult = await pool.query(userQuery, [email]);
 

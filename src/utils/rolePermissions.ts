@@ -42,19 +42,7 @@ export function checkPermission(
   const normalized = normalizeRole(role);
   if (!normalized) return false;
 
-  if (normalized === "admin") {
-    const adminPerms = rolePermissions.admin || [];
-    if (adminPerms.includes(permission)) return true;
-    return true;
-  }
-
-  if (isSalesFacingRole(normalized) && SALES_UI_PERMISSIONS.includes(permission)) {
-    return true;
-  }
-
-  if (permission === "view_leads" && isLeadsAccessRole(normalized)) {
-    return true;
-  }
+  // Enforce permissions strictly according to roles matrix from DB for all roles
 
   const perms = rolePermissions[normalized] || [];
   return Array.isArray(perms) ? perms.includes(permission) : false;

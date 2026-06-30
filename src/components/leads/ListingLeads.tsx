@@ -194,11 +194,9 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
   const [deletingLeads, setDeletingLeads] = useState(false);
   const navigate = useNavigate();
 
-  const isAdminOrManager = ["admin", "manager"].includes(
-    user?.role?.toLowerCase() || "",
-  );
-  const canDeleteLeads =
-    hasPermission("create_leads") && isAdminOrManager;
+  const canDeleteLeads = hasPermission("delete_leads");
+  const canExportLeads = hasPermission("export_leads");
+  const canCreateLeads = hasPermission("create_leads");
 
   const syncPageToUrl = useCallback(
     (page: number) => {
@@ -447,7 +445,7 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
 
   const handleAssignLead = useCallback(
     (lead: LocalLead) => {
-      if (!hasPermission("create_leads")) return;
+      if (!hasPermission("assign_leads")) return;
       setSelectedLeadForAssign(lead);
       setIsAssignModalOpen(true);
     },
@@ -456,7 +454,7 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
 
   const handleStatusChange = useCallback(
     async (id: number, newStatus: string) => {
-      if (!isAuthenticated || !token || user?.role === "agent") return;
+      if (!isAuthenticated || !token || !hasPermission("edit_leads")) return;
       // Optimistically update status locally in Redux store
       updateLeadStatus(id, newStatus.toLowerCase());
       try {
@@ -665,22 +663,22 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
                 )}
                 <button
                   onClick={handleExport}
-                  disabled={isLoading || !isAdminOrManager}
-                  style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",height:36,borderRadius:8,background:"hsl(var(--card))",color:"hsl(var(--muted-foreground))",border:"1px solid hsl(var(--border))",fontSize:12,fontWeight:500,cursor:"pointer",opacity:!isAdminOrManager?0.5:1 }}
+                  disabled={isLoading || !canExportLeads}
+                  style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",height:36,borderRadius:8,background:"hsl(var(--card))",color:"hsl(var(--muted-foreground))",border:"1px solid hsl(var(--border))",fontSize:12,fontWeight:500,cursor:"pointer",opacity:!canExportLeads?0.5:1 }}
                 >
                   ↓ Export
                 </button>
                 <Dialog
                   open={isCreateModalOpen}
                   onOpenChange={(open) => {
-                    if (!hasPermission("create_leads") || !isAdminOrManager) return;
+                    if (!canCreateLeads) return;
                     setIsCreateModalOpen(open);
                   }}
                 >
                   <DialogTrigger asChild>
                     <button
-                      disabled={isLoading || !hasPermission("create_leads") || !isAdminOrManager}
-                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",height:36,borderRadius:8,background: "var(--theme-color)",color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",opacity:(!hasPermission("create_leads")||!isAdminOrManager)?0.5:1,boxShadow: "0 2px 8px rgba(var(--theme-color-rgb), 0.3)" }}
+                      disabled={isLoading || !canCreateLeads}
+                      style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",height:36,borderRadius:8,background: "var(--theme-color)",color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",opacity:(!canCreateLeads)?0.5:1,boxShadow: "0 2px 8px rgba(var(--theme-color-rgb), 0.3)" }}
                     >
                       <Plus size={14} /> Add Lead
                     </button>
@@ -738,7 +736,7 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
                 onStatusChange={handleStatusChange}
                 onViewDetails={handleViewDetails}
                 onEdit={(lead) => {
-                  if (!hasPermission("create_leads")) return;
+                  if (!hasPermission("edit_leads")) return;
                   setSelectedLead(lead);
                   setIsEditModalOpen(true);
                 }}
@@ -772,7 +770,7 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
             <Dialog
               open={isEditModalOpen}
               onOpenChange={(open) => {
-                if (!hasPermission("create_leads")) return;
+                if (!hasPermission("edit_leads")) return;
                 setIsEditModalOpen(open);
                 if (!open) setSelectedLead(null);
               }}

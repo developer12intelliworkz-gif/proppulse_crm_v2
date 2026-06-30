@@ -13,17 +13,19 @@ import {
   uploadMiddleware,
 } from "../controllers/task.controller.js";
 
+import { requirePermission } from "../middleware/authorize.js";
+
 const router = express.Router();
 
-router.get("/stats", authenticateToken, getTaskStats);
-router.get("/team", authenticateToken, getTeamStats);
-router.get("/", authenticateToken, getTasks);
-router.get("/:id", authenticateToken, getTaskById);
-router.post("/", authenticateToken, uploadMiddleware.single("document"), createTask);
-router.put("/:id", authenticateToken, uploadMiddleware.single("document"), updateTask);
-router.patch("/:id/status", authenticateToken, patchTaskStatus);
-router.post("/:id/status", authenticateToken, patchTaskStatus);
-router.post("/:id/comments", authenticateToken, addTaskComment);
-router.delete("/:id", authenticateToken, deleteTask);
+router.get("/stats", authenticateToken, requirePermission("view_tasks"), getTaskStats);
+router.get("/team", authenticateToken, requirePermission("view_tasks"), getTeamStats);
+router.get("/", authenticateToken, requirePermission("view_tasks"), getTasks);
+router.get("/:id", authenticateToken, requirePermission("view_tasks"), getTaskById);
+router.post("/", authenticateToken, requirePermission("view_tasks"), uploadMiddleware.single("document"), createTask);
+router.put("/:id", authenticateToken, requirePermission("view_tasks"), uploadMiddleware.single("document"), updateTask);
+router.patch("/:id/status", authenticateToken, requirePermission("view_tasks"), patchTaskStatus);
+router.post("/:id/status", authenticateToken, requirePermission("view_tasks"), patchTaskStatus);
+router.post("/:id/comments", authenticateToken, requirePermission("view_tasks"), addTaskComment);
+router.delete("/:id", authenticateToken, requirePermission("view_tasks"), deleteTask);
 
 export default router;

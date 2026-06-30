@@ -244,9 +244,49 @@ export const getLeads = async (req, res) => {
     } = req.query;
     const offset = (page - 1) * limit;
 
+    const userId = req.user?.id;
+    const userRole = req.user?.role?.toLowerCase();
+
+    // Query user permissions directly
+    let hasViewAllLeads = false;
+    if (userRole === "admin") {
+      hasViewAllLeads = true;
+    } else if (userId) {
+      const rpQuery = `
+        SELECT rp.role_name, rp.permissions
+        FROM users u
+        JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
+        WHERE u.id = $1 AND u.deleted_at IS NULL AND rp.deleted_at IS NULL
+      `;
+      const rpRes = await pool.query(rpQuery, [userId]);
+      if (rpRes.rows.length > 0) {
+        const rpRow = rpRes.rows[0];
+        const permsObj = rpRow.permissions;
+        let permsArray = [];
+        if (permsObj) {
+          if (Array.isArray(permsObj)) {
+            permsArray = permsObj;
+          } else if (typeof permsObj === "object") {
+            permsArray = permsObj[rpRow.role_name] || permsObj[rpRow.role_name.toLowerCase()] || Object.values(permsObj).flat();
+          }
+        }
+        if (permsArray.includes("view_all_leads")) {
+          hasViewAllLeads = true;
+        }
+      }
+    }
+
+    const isRestricted = (userRole === "sales executive" || userRole === "telecaller" || userRole === "sales" || userRole === "agent") && !hasViewAllLeads;
+
     let countQuery = `SELECT COUNT(*) FROM public.leads l WHERE l.is_active = TRUE`;
     const countParams = [];
     let countParamCount = 0;
+
+    if (isRestricted && userId) {
+      countParamCount++;
+      countQuery += ` AND l.assigned_to = $${countParamCount}`;
+      countParams.push(userId);
+    }
 
     if (search) {
       countParamCount++;
@@ -282,6 +322,12 @@ export const getLeads = async (req, res) => {
 
     let paramCount = 0;
     const params = [];
+
+    if (isRestricted && userId) {
+      paramCount++;
+      leadsQuery += ` AND l.assigned_to = $${paramCount}`;
+      params.push(userId);
+    }
 
     if (search) {
       paramCount++;
@@ -358,6 +404,40 @@ export const getLeadById = async (req, res) => {
       activities: [],
       documents: [],
     };
+
+    const userId = req.user?.id;
+    const userRole = req.user?.role?.toLowerCase();
+    let hasViewAllLeads = false;
+    if (userRole === "admin") {
+      hasViewAllLeads = true;
+    } else if (userId) {
+      const rpQuery = `
+        SELECT rp.role_name, rp.permissions
+        FROM users u
+        JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
+        WHERE u.id = $1 AND u.deleted_at IS NULL AND rp.deleted_at IS NULL
+      `;
+      const rpRes = await pool.query(rpQuery, [userId]);
+      if (rpRes.rows.length > 0) {
+        const rpRow = rpRes.rows[0];
+        const permsObj = rpRow.permissions;
+        let permsArray = [];
+        if (permsObj) {
+          if (Array.isArray(permsObj)) {
+            permsArray = permsObj;
+          } else if (typeof permsObj === "object") {
+            permsArray = permsObj[rpRow.role_name] || permsObj[rpRow.role_name.toLowerCase()] || Object.values(permsObj).flat();
+          }
+        }
+        if (permsArray.includes("view_all_leads")) {
+          hasViewAllLeads = true;
+        }
+      }
+    }
+
+    if (!hasViewAllLeads && userId && lead.assigned_to !== userId) {
+      return res.status(403).json({ error: "Access denied: you do not own this lead" });
+    }
 
     if (lead.lead_type_name) {
       lead.lead_type = lead.lead_type_name;
@@ -1015,6 +1095,41 @@ export const updateLead = async (req, res) => {
     }
 
     const currentRow = existingLead.rows[0];
+
+    const userId = req.user?.id;
+    const userRole = req.user?.role?.toLowerCase();
+    let hasEditAllLeads = false;
+    if (userRole === "admin") {
+      hasEditAllLeads = true;
+    } else if (userId) {
+      const rpQuery = `
+        SELECT rp.role_name, rp.permissions
+        FROM users u
+        JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
+        WHERE u.id = $1 AND u.deleted_at IS NULL AND rp.deleted_at IS NULL
+      `;
+      const rpRes = await pool.query(rpQuery, [userId]);
+      if (rpRes.rows.length > 0) {
+        const rpRow = rpRes.rows[0];
+        const permsObj = rpRow.permissions;
+        let permsArray = [];
+        if (permsObj) {
+          if (Array.isArray(permsObj)) {
+            permsArray = permsObj;
+          } else if (typeof permsObj === "object") {
+            permsArray = permsObj[rpRow.role_name] || permsObj[rpRow.role_name.toLowerCase()] || Object.values(permsObj).flat();
+          }
+        }
+        if (permsArray.includes("edit_all_leads") || permsArray.includes("view_all_leads")) {
+          // If they can view all leads, let them edit too, or keep it strict
+          hasEditAllLeads = true;
+        }
+      }
+    }
+
+    if (!hasEditAllLeads && userId && currentRow.assigned_to !== userId) {
+      return res.status(403).json({ error: "Access denied: you do not own this lead" });
+    }
     const emailChanged =
       email !== undefined &&
       (email || "").toLowerCase() !== (currentRow.email || "").toLowerCase();
@@ -1229,6 +1344,47 @@ export const updateLead = async (req, res) => {
 export const deleteLead = async (req, res) => {
   try {
     const { id } = req.params;
+    const leadCheck = await pool.query(
+      "SELECT assigned_to FROM leads WHERE id = $1 AND is_active = TRUE",
+      [id]
+    );
+    if (leadCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Lead not found or already deleted" });
+    }
+
+    const userId = req.user?.id;
+    const userRole = req.user?.role?.toLowerCase();
+    let hasDeleteAllLeads = false;
+    if (userRole === "admin") {
+      hasDeleteAllLeads = true;
+    } else if (userId) {
+      const rpQuery = `
+        SELECT rp.role_name, rp.permissions
+        FROM users u
+        JOIN roles_permissions rp ON u.roles_permissions_id = rp.id
+        WHERE u.id = $1 AND u.deleted_at IS NULL AND rp.deleted_at IS NULL
+      `;
+      const rpRes = await pool.query(rpQuery, [userId]);
+      if (rpRes.rows.length > 0) {
+        const rpRow = rpRes.rows[0];
+        const permsObj = rpRow.permissions;
+        let permsArray = [];
+        if (permsObj) {
+          if (Array.isArray(permsObj)) {
+            permsArray = permsObj;
+          } else if (typeof permsObj === "object") {
+            permsArray = permsObj[rpRow.role_name] || permsObj[rpRow.role_name.toLowerCase()] || Object.values(permsObj).flat();
+          }
+        }
+        if (permsArray.includes("delete_all_leads") || permsArray.includes("view_all_leads")) {
+          hasDeleteAllLeads = true;
+        }
+      }
+    }
+
+    if (!hasDeleteAllLeads && userId && leadCheck.rows[0].assigned_to !== userId) {
+      return res.status(403).json({ error: "Access denied: you do not own this lead" });
+    }
 
     const result = await pool.query(
       `

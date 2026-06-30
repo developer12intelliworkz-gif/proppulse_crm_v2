@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Settings as SettingsIcon,
   User,
@@ -16,6 +17,7 @@ interface SettingItem {
   title: string;
   description: string;
   path: string;
+  permission?: string;
 }
 
 const settingsData: SettingItem[] = [
@@ -24,42 +26,49 @@ const settingsData: SettingItem[] = [
     title: "Roles & Responsibilities",
     description: "Manage Roles & Responsibilities",
     path: "/settings/roles-and-responsibilities",
+    permission: "view_roles",
   },
   {
     icon: CreditCard,
     title: "Lead Sources",
     description: "Manage different lead sources.",
     path: "/settings/lead-types",
+    permission: "manage_lead_types",
   },
   {
     icon: Map,
     title: "Import",
     description: "Import your data in bulk.",
     path: "/settings/import",
+    permission: "import_leads",
   },
   {
     icon: FileDown,
     title: "Download",
     description: "Download your files, activities & more.",
     path: "/settings/download",
+    permission: "export_leads",
   },
   {
     icon: Target,
     title: "Company Details",
     description: "Manage your common company details.",
     path: "/settings/company-details",
+    permission: "view_settings",
   },
   {
     icon: FileText,
     title: "Document Management",
     description: "Manage your documents and files.",
     path: "/settings/document-management",
+    permission: "view_settings",
   },
   {
     icon: Users,
     title: "Reassignment Leads",
     description: "Bulk reassignment of leads.",
     path: "/settings/reassignment-leads",
+    permission: "assign_leads",
   },
 ];
 
@@ -149,6 +158,8 @@ const SettingCard: React.FC<SettingItem> = ({
 );
 
 const Settings = () => {
+  const { hasPermission } = useAuth();
+
   return (
     <div
       style={{
@@ -201,15 +212,17 @@ const Settings = () => {
             gap: 14,
           }}
         >
-          {settingsData.map((item, index) => (
-            <SettingCard
-              key={index}
-              icon={item.icon}
-              title={item.title}
-              description={item.description}
-              path={item.path}
-            />
-          ))}
+          {settingsData
+            .filter((item) => !item.permission || hasPermission(item.permission))
+            .map((item, index) => (
+              <SettingCard
+                key={index}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                path={item.path}
+              />
+            ))}
         </div>
       </div>
     </div>

@@ -24,6 +24,28 @@ export const getAllRolesPermissions = async (req, res) => {
   }
 };
 
+// Helper function to prevent locking out settings & roles permissions for admin roles
+function ensureCriticalPermissions(roleName, permissions) {
+  const normName = roleName.toLowerCase().trim();
+  if (normName === "admin" || normName === "super admin") {
+    const critical = ["view_settings", "view_roles", "update_roles", "create_roles", "delete_roles"];
+    if (typeof permissions === "object" && permissions !== null) {
+      const key = Object.keys(permissions).find(k => k.toLowerCase().trim() === normName) || roleName;
+      let permsArray = permissions[key];
+      if (!Array.isArray(permsArray)) {
+        permsArray = [];
+      }
+      critical.forEach(p => {
+        if (!permsArray.includes(p)) {
+          permsArray.push(p);
+        }
+      });
+      permissions[key] = permsArray;
+    }
+  }
+  return permissions;
+}
+
 // Create new roles_permissions record
 export const createRolesPermissions = async (req, res) => {
   try {
@@ -42,9 +64,11 @@ export const createRolesPermissions = async (req, res) => {
       });
     }
 
+    const validatedPermissions = ensureCriticalPermissions(role_name, permissions);
+
     const result = await pool.query(
       `INSERT INTO roles_permissions (role_name, permissions, status) VALUES ($1, $2, $3) RETURNING id, role_name, permissions, status`,
-      [role_name.trim(), permissions, status]
+      [role_name.trim(), validatedPermissions, status]
     );
 
     const row = result.rows[0];
@@ -85,11 +109,13 @@ export const updateRolesPermissions = async (req, res) => {
       });
     }
 
+    const validatedPermissions = ensureCriticalPermissions(role_name, permissions);
+
     const result = await pool.query(
       `UPDATE roles_permissions 
        SET role_name = $1, permissions = $2, status = $3, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $4 AND deleted_at IS NULL RETURNING id, role_name, permissions, status`,
-      [role_name.trim(), permissions, status, id]
+      [role_name.trim(), validatedPermissions, status, id]
     );
 
     if (result.rows.length === 0) {

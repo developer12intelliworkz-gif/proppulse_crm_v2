@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../../database/config.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { requirePermission } from "../middleware/authorize.js";
 import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
@@ -44,7 +45,7 @@ const upload = multer({
 const router = express.Router();
 
 // GET all users
-router.get("/users", authenticateToken, async (req, res) => {
+router.get("/users", authenticateToken, requirePermission("manage_users"), async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT u.id, u.name, u.email, u.phone, rp.role_name AS role, u.is_active, u.created_at, u.last_login, u.photo, u.roles_permissions_id 
@@ -70,7 +71,7 @@ router.get("/users", authenticateToken, async (req, res) => {
 });
 
 // POST create user
-router.post("/users", upload.single("photo"), async (req, res) => {
+router.post("/users", authenticateToken, requirePermission("create_users"), upload.single("photo"), async (req, res) => {
   const { name, email, phone, roles_permissions_id, status, password } =
     req.body;
   const photo = req.file ? req.file.filename : null;
@@ -291,6 +292,7 @@ router.put(
   "/users/:id",
   upload.single("photo"),
   authenticateToken,
+  requirePermission("manage_users"),
   async (req, res) => {
     const { id } = req.params;
     const { name, email, phone, roles_permissions_id, status } = req.body;
@@ -361,7 +363,7 @@ router.put(
 );
 
 // DELETE user (soft delete)
-router.delete("/users/:id", authenticateToken, async (req, res) => {
+router.delete("/users/:id", authenticateToken, requirePermission("manage_users"), async (req, res) => {
   const { id } = req.params;
 
   try {
