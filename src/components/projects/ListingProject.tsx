@@ -47,6 +47,7 @@ interface Project {
   is_active: boolean;
   project_type?: string | null;
   project_structure?: string | null;
+  project_logo_url?: string | null;
 }
 
 const ACCENT_COLORS = ["var(--theme-color)", "#EC4899", "#F97316", "#059669", "#0EA5E9", "#7C3AED", "#D97706", "#DC2626"];
@@ -72,6 +73,7 @@ const ListingProject = () => {
   const { hasPermission, user: currentUser } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -273,9 +275,19 @@ const ListingProject = () => {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          flexShrink: 0
+                          flexShrink: 0,
+                          overflow: "hidden"
                         }}>
-                          <Building size={18} color="var(--theme-color)" />
+                          {(project.project_logo_url && !failedLogos[project.id]) ? (
+                            <img
+                              src={project.project_logo_url}
+                              alt={project.name}
+                              onError={() => setFailedLogos(prev => ({ ...prev, [project.id]: true }))}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <Building size={18} color="var(--theme-color)" />
+                          )}
                         </div>
                         <div>
                           <div style={{ fontSize: 15, fontWeight: 700, color: "hsl(var(--foreground))", lineHeight: 1.2 }}>
@@ -537,8 +549,27 @@ const ListingProject = () => {
                   onMouseLeave={e=>(e.currentTarget as HTMLDivElement).style.background="transparent"}
                 >
                   <div style={{ padding: "12px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width:34, height:34, borderRadius:9, background:getAccentBg(accent), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <Building size={15} color={accent} />
+                    <div style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: getAccentBg(accent),
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      overflow: "hidden"
+                    }}>
+                      {(project.project_logo_url && !failedLogos[project.id]) ? (
+                        <img
+                          src={project.project_logo_url}
+                          alt={project.name}
+                          onError={() => setFailedLogos(prev => ({ ...prev, [project.id]: true }))}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <Building size={15} color={accent} />
+                      )}
                     </div>
                     <div>
                       <div style={{ fontSize:13, fontWeight:600, color:"hsl(var(--foreground))" }}>{project.name}</div>

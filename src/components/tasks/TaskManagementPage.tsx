@@ -78,13 +78,16 @@ const TaskManagementPage = () => {
       <div>
 
         {/* ── Page header ─────────────────────────────────── */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--theme-color)", fontWeight: 500, marginBottom: 3 }}>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--theme-color)", fontWeight: 600, marginBottom: 3 }}>
               TASKS
             </div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "hsl(var(--foreground))", display: "flex", alignItems: "baseline", gap: 8 }}>
               Task Management
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--theme-color)", background: "rgba(var(--theme-color-rgb), 0.1)", padding: "2px 10px", borderRadius: 20 }}>
+                {tasks.length}
+              </span>
             </div>
           </div>
           <button
@@ -92,8 +95,9 @@ const TaskManagementPage = () => {
             style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "8px 16px", background: "var(--theme-color)", color: "#fff",
-              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 500,
+              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
               cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s",
+              boxShadow: "0 2px 8px rgba(var(--theme-color-rgb), 0.3)",
             }}
             onMouseEnter={e => (e.currentTarget.style.background = "var(--theme-color-hover)")}
             onMouseLeave={e => (e.currentTarget.style.background = "var(--theme-color)")}
@@ -108,35 +112,39 @@ const TaskManagementPage = () => {
 
         {/* ── View filter pills ───────────────────────────── */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "14px 0" }}>
-          {VIEW_CHIPS.map((chip) => (
-            <button
-              key={chip.id}
-              onClick={() => setViewFilter(chip.id)}
-              style={{
-                padding: "5px 14px",
-                borderRadius: 20,
-                fontSize: 11,
-                border: "1px solid",
-                borderColor: viewFilter === chip.id ? "var(--theme-color)" : "hsl(var(--border))",
-                background: viewFilter === chip.id ? "var(--theme-color)" : "hsl(var(--card))",
-                color: viewFilter === chip.id ? "#fff" : "hsl(var(--muted-foreground))",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.1s",
-              }}
-            >
-              {chip.label}
-            </button>
-          ))}
+          {VIEW_CHIPS.map((chip) => {
+            const active = viewFilter === chip.id;
+            return (
+              <button
+                key={chip.id}
+                onClick={() => setViewFilter(chip.id)}
+                style={{
+                  padding: "5px 14px",
+                  borderRadius: 20,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: `1.5px solid ${active ? "var(--theme-color)" : "hsl(var(--border))"}`,
+                  background: active ? "var(--theme-color)" : "hsl(var(--card))",
+                  color: active ? "#fff" : "hsl(var(--muted-foreground))",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "all 0.12s",
+                  boxShadow: active ? "0 2px 6px rgba(var(--theme-color-rgb), 0.15)" : "none",
+                }}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── View tabs ─────────────────────────────────── */}
         <Tabs value={tab} onValueChange={setTab} className="mt-4">
-          <TabsList>
-            <TabsTrigger value="list">List</TabsTrigger>
-            <TabsTrigger value="board">Board</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            {isManager && <TabsTrigger value="team">Team</TabsTrigger>}
+          <TabsList className="bg-card border border-border p-1 rounded-xl h-10 gap-1">
+            <TabsTrigger value="list" className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">List</TabsTrigger>
+            <TabsTrigger value="board" className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Board</TabsTrigger>
+            <TabsTrigger value="calendar" className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Calendar</TabsTrigger>
+            {isManager && <TabsTrigger value="team" className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Team</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="list" className="mt-4">

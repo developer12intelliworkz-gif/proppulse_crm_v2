@@ -81,6 +81,10 @@ const uploadsPath = process.env.UPLOADS_PATH
 
 app.use("/api/uploads", express.static(uploadsPath));
 
+// Lead source icons static serving paths
+app.use("/public/lead_icons", express.static(join(__dirname, "public", "lead_icons")));
+app.use("/api/public/lead_icons", express.static(join(__dirname, "public", "lead_icons")));
+
 // Serve main public folder
 app.use(express.static(join(__dirname, "public")));
 

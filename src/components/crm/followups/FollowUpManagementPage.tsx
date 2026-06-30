@@ -287,21 +287,43 @@ const FollowUpManagementPage = () => {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div style={{ height: "100%", overflowY: "auto", background: "rgba(var(--theme-color-rgb), 0.02)", padding: "22px 24px" }}>
+        {/* Page header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Follow-Up Management</h1>
-            <p className="text-sm text-muted-foreground">
-              Track calls, close leads with dispositions, and focus on what needs action today.
-            </p>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--theme-color)", fontWeight: 600, marginBottom: 3 }}>
+              FOLLOW-UPS
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "hsl(var(--foreground))", display: "flex", alignItems: "baseline", gap: 8 }}>
+              Follow-Up Management
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--theme-color)", background: "rgba(var(--theme-color-rgb), 0.1)", padding: "2px 10px", borderRadius: 20 }}>
+                {pagination.total}
+              </span>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => void fetchAll()}>
-              <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-            </Button>
-            <Button size="sm" onClick={() => { setLogLead(null); setLogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Log Follow-up
-            </Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => void fetchAll()}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 14px", height: 36, background: "hsl(var(--card))",
+                color: "hsl(var(--muted-foreground))", border: "1px solid hsl(var(--border))",
+                borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-0.5" /> Refresh
+            </button>
+            <button
+              onClick={() => { setLogLead(null); setLogOpen(true); }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 16px", height: 36, background: "var(--theme-color)", color: "#fff",
+                border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                cursor: "pointer", boxShadow: "0 2px 8px rgba(var(--theme-color-rgb), 0.3)",
+              }}
+            >
+              <Plus className="h-4 w-4 mr-0.5" /> Log Follow-up
+            </button>
           </div>
         </div>
 
@@ -316,41 +338,77 @@ const FollowUpManagementPage = () => {
                 : "—"
               : `${value ?? 0}${kpi.suffix ?? ""}`;
 
+            const color = kpi.danger ? "#EF4444" : kpi.isRatio ? "#8B5CF6" : kpi.key === "conversionRate" ? "#10B981" : "var(--theme-color)";
+            const bg = color.startsWith("var") ? "rgba(var(--theme-color-rgb), 0.04)" : `${color}0d`;
+            const border = color.startsWith("var") ? "rgba(var(--theme-color-rgb), 0.15)" : `${color}25`;
+            const glow = color.startsWith("var") ? "rgba(var(--theme-color-rgb), 0.15)" : `${color}20`;
+
             return (
               <Card
                 key={kpi.key}
-                className={`cursor-pointer transition-shadow hover:shadow-md ${kpi.danger ? "border-red-200" : ""}`}
+                className={kpi.danger ? "border-red-200" : ""}
+                style={{
+                  background: bg,
+                  borderColor: border,
+                  borderLeft: `4px solid ${color}`,
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease",
+                }}
                 onClick={() => applyKpiFilter(kpi.filter)}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = "translateY(-3px)";
+                  e.currentTarget.style.boxShadow = `0 12px 30px ${glow}`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {kpi.label}
-                  </CardTitle>
-                  <div className="flex items-center gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-xs">
-                        {KPI_FORMULAS[kpi.formulaKey]}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {summaryLoading ? (
-                    <Skeleton className="h-8 w-20" />
-                  ) : kpi.isRatio ? (
-                    <div className="space-y-2">
-                      <p className="text-lg font-semibold">{displayValue}</p>
-                      <Progress value={monthProgress} className="h-2" />
+                <CardContent className="p-4 flex items-start justify-between">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>
+                        {kpi.label}
+                      </p>
+                      <Tooltip>
+                        <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-xs">
+                          {KPI_FORMULAS[kpi.formulaKey]}
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                  ) : (
-                    <p className={`text-2xl font-bold ${kpi.danger ? "text-red-600" : ""}`}>
-                      {displayValue}
-                    </p>
-                  )}
+                    {summaryLoading ? (
+                      <Skeleton className="h-8 w-20 mt-2" />
+                    ) : kpi.isRatio ? (
+                      <div className="space-y-2 mt-2">
+                        <p className="text-lg font-bold text-foreground">{displayValue}</p>
+                        <Progress value={monthProgress} className="h-1.5" />
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-black mt-2 text-foreground">
+                        {displayValue}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      background: color.startsWith("var")
+                        ? "linear-gradient(135deg, rgba(var(--theme-color-rgb), 0.15), rgba(var(--theme-color-rgb), 0.03))"
+                        : `linear-gradient(135deg, ${color}26, ${color}08)`,
+                      boxShadow: `0 4px 10px ${color.startsWith("var") ? "rgba(var(--theme-color-rgb), 0.05)" : color + "12"}`
+                    }}
+                    className="p-2.5 rounded-xl flex-shrink-0 ml-3"
+                  >
+                    <Icon
+                      className="h-5 w-5"
+                      style={{
+                        color: color.startsWith("var") ? "var(--theme-color)" : color
+                      }}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -358,66 +416,91 @@ const FollowUpManagementPage = () => {
         </div>
 
         {/* Pipeline (compact) */}
-        <div className="flex flex-wrap gap-2">
-          {PIPELINE_STAGES.map((stage) => (
-            <button
-              key={stage.id}
-              type="button"
-              onClick={() => {
-                setStageFilter(stageFilter === stage.id ? "" : stage.id);
-                setPage(1);
-              }}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${stageColor(stage.id)} ${stageFilter === stage.id ? "ring-2 ring-primary" : ""}`}
-            >
-              {stage.short}
-              <Badge variant="secondary" className="h-5 px-1.5">
-                {pipeline[stage.id] ?? 0}
-              </Badge>
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, margin: "14px 0" }}>
+          {PIPELINE_STAGES.map((stage) => {
+            const active = stageFilter === stage.id;
+            const count = pipeline[stage.id] ?? 0;
+            
+            let pillColor = "#6366F1";
+            if (stage.id === "new") pillColor = "#64748B";
+            else if (stage.id === "contacted") pillColor = "#3B82F6";
+            else if (stage.id === "site_visit_negotiation") pillColor = "#8B5CF6";
+            else if (stage.id === "won") pillColor = "#10B981";
+            else if (stage.id === "lost") pillColor = "#EF4444";
+
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => {
+                  setStageFilter(stageFilter === stage.id ? "" : stage.id);
+                  setPage(1);
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "6px 14px", borderRadius: 20, flexShrink: 0,
+                  border: `1.5px solid ${active ? pillColor : "hsl(var(--border))"}`,
+                  background: active ? `${pillColor}15` : "hsl(var(--card))",
+                  color: active ? pillColor : "hsl(var(--muted-foreground))",
+                  fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", transition: "all 0.12s",
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: pillColor }} />
+                {stage.short}
+                <span style={{
+                  fontSize: 9, fontWeight: 700,
+                  background: active ? pillColor : "hsl(var(--muted))",
+                  color: active ? "#fff" : "hsl(var(--muted-foreground))",
+                  padding: "1px 6px", borderRadius: 10,
+                }}>{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Alerts: Overdue + Due Today only */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
+          <Card style={{ borderRadius: 12, border: "1px solid hsl(var(--border))", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <CardHeader className="pb-2" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+              <CardTitle className="text-xs font-bold text-red-600 flex items-center gap-2 uppercase tracking-wider">
                 <AlertTriangle className="h-4 w-4" /> Overdue (oldest first)
               </CardTitle>
             </CardHeader>
-            <CardContent className="max-h-48 overflow-y-auto space-y-1">
+            <CardContent className="max-h-48 overflow-y-auto space-y-1 p-2">
               {alerts.overdue.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No overdue follow-ups</p>
+                <p className="text-xs text-muted-foreground p-3 text-center">No overdue follow-ups</p>
               ) : (
                 alerts.overdue.map((a) => (
                   <button
                     key={a.activityId}
                     type="button"
-                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted flex justify-between"
+                    className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors flex justify-between items-center"
                     onClick={() => navigate(`/leads/${a.leadId}`)}
                   >
-                    <span>{a.leadName}</span>
-                    <span className="text-red-600 text-xs">{a.daysOverdue}d overdue</span>
+                    <span className="font-semibold text-foreground">{a.leadName}</span>
+                    <span style={{ fontSize: 10, background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA", padding: "1px 8px", borderRadius: 20, fontWeight: 600 }}>{a.daysOverdue}d overdue</span>
                   </button>
                 ))
               )}
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Due Today
+
+          <Card style={{ borderRadius: 12, border: "1px solid hsl(var(--border))", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <CardHeader className="pb-2" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+              <CardTitle className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                <Calendar className="h-4 w-4 text-muted-foreground" /> Due Today
               </CardTitle>
             </CardHeader>
-            <CardContent className="max-h-48 overflow-y-auto space-y-1">
+            <CardContent className="max-h-48 overflow-y-auto space-y-1 p-2">
               {alerts.dueToday.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nothing due today</p>
+                <p className="text-xs text-muted-foreground p-3 text-center">Nothing due today</p>
               ) : (
                 alerts.dueToday.map((a) => (
                   <button
                     key={a.activityId}
                     type="button"
-                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted"
+                    className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors font-semibold text-foreground"
                     onClick={() => navigate(`/leads/${a.leadId}`)}
                   >
                     {a.leadName}
@@ -429,59 +512,75 @@ const FollowUpManagementPage = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search leads..."
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "hsl(var(--card))", borderRadius: 12, padding: "10px 14px", border: "1px solid hsl(var(--border))", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+          {/* Search */}
+          <div style={{ position: "relative", flex: "1 1 200px", minWidth: 200 }}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search leads..."
+              style={{ width: "100%", paddingLeft: 32, paddingRight: 10, height: 36, border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, outline: "none", background: "hsl(var(--background))", color: "hsl(var(--foreground))", fontFamily: "inherit" }}
             />
           </div>
-          <Select value={salesperson} onValueChange={(v) => { setSalesperson(v); setPage(1); }}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Salesperson" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Salespeople</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="pending">Upcoming</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={(v) => { setPriorityFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="Priority" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">Hot</SelectItem>
-              <SelectItem value="medium">Warm</SelectItem>
-              <SelectItem value="low">Cold</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input type="date" className="w-[150px]" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
-          <Input type="date" className="w-[150px]" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <Select value={salesperson} onValueChange={(v) => { setSalesperson(v); setPage(1); }}>
+              <SelectTrigger style={{ height: 36, borderRadius: 8, fontSize: 12, width: 150 }} className="bg-card border border-border">
+                <SelectValue placeholder="Salesperson" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Salespeople</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+              <SelectTrigger style={{ height: 36, borderRadius: 8, fontSize: 12, width: 130 }} className="bg-card border border-border">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="pending">Upcoming</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={priorityFilter} onValueChange={(v) => { setPriorityFilter(v); setPage(1); }}>
+              <SelectTrigger style={{ height: 36, borderRadius: 8, fontSize: 12, width: 130 }} className="bg-card border border-border">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="high">Hot</SelectItem>
+                <SelectItem value="medium">Warm</SelectItem>
+                <SelectItem value="low">Cold</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} style={{ height: 36, padding: "0 10px", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, background: "hsl(var(--card))", color: "hsl(var(--foreground))", fontFamily: "inherit" }} />
+              <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>to</span>
+              <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} style={{ height: 36, padding: "0 10px", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, background: "hsl(var(--card))", color: "hsl(var(--foreground))", fontFamily: "inherit" }} />
+            </div>
+          </div>
         </div>
 
         {/* 6-column table with expandable rows */}
-        <Card>
+        <Card style={{ borderRadius: 14, overflow: "hidden", border: "1px solid hsl(var(--border))", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
           <CardContent className="p-0">
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader style={{ background: "rgba(var(--theme-color-rgb), 0.05)" }}>
+                <TableRow className="border-b">
                   <TableHead className="w-8" />
-                  <TableHead>Lead Name</TableHead>
-                  <TableHead>Assigned</TableHead>
-                  <TableHead>Next Follow-up</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Lead Name</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assigned</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Next Follow-up</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Priority</TableHead>
+                  <TableHead style={{ color: "var(--theme-color)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }} className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -502,13 +601,13 @@ const FollowUpManagementPage = () => {
                     const expanded = expandedRows.has(row.leadId);
                     return (
                       <Fragment key={row.leadId}>
-                        <TableRow className="hover:bg-muted/40">
+                        <TableRow className="hover:bg-muted/40 transition-colors border-b">
                           <TableCell>
                             <button type="button" onClick={() => toggleExpand(row.leadId)}>
                               {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                             </button>
                           </TableCell>
-                          <TableCell className="font-medium">{row.leadName}</TableCell>
+                          <TableCell className="font-semibold text-foreground">{row.leadName}</TableCell>
                           <TableCell>{row.assigneeName}</TableCell>
                           <TableCell>
                             {row.nextFollowUpDate
@@ -525,40 +624,43 @@ const FollowUpManagementPage = () => {
                               {priorityLabel(row.priority)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => { setLogLead({ id: row.leadId, name: row.leadName }); setLogOpen(true); }}
-                            >
-                              Log
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={!row.activityId}
-                              onClick={() => {
-                                setRescheduleTarget(row);
-                                setRescheduleDate(row.nextFollowUpDate || "");
-                                setRescheduleOpen(true);
-                              }}
-                            >
-                              Reschedule
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => navigate(`/leads/${row.leadId}`)}>
-                              View
-                            </Button>
+                          <TableCell className="text-right">
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                              <button
+                                onClick={() => { setLogLead({ id: row.leadId, name: row.leadName }); setLogOpen(true); }}
+                                style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, color: "var(--theme-color)", background: "rgba(var(--theme-color-rgb), 0.08)", border: "none", borderRadius: 6, cursor: "pointer" }}
+                              >
+                                Log
+                              </button>
+                              <button
+                                disabled={!row.activityId}
+                                onClick={() => {
+                                  setRescheduleTarget(row);
+                                  setRescheduleDate(row.nextFollowUpDate || "");
+                                  setRescheduleOpen(true);
+                                }}
+                                style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, color: "#D97706", background: "#FFFBEB", border: "none", borderRadius: 6, cursor: "pointer", opacity: !row.activityId ? 0.5 : 1 }}
+                              >
+                                Reschedule
+                              </button>
+                              <button
+                                onClick={() => navigate(`/leads/${row.leadId}`)}
+                                style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, color: "hsl(var(--muted-foreground))", background: "hsl(var(--secondary))", border: "none", borderRadius: 6, cursor: "pointer" }}
+                              >
+                                View
+                              </button>
+                            </div>
                           </TableCell>
                         </TableRow>
                         {expanded && (
                           <TableRow key={`${row.leadId}-detail`}>
-                            <TableCell colSpan={7} className="bg-muted/20 text-sm">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-2 px-4">
-                                <div><span className="text-muted-foreground">Source:</span> {row.companySource}</div>
-                                <div><span className="text-muted-foreground">Type:</span> {row.followUpType}</div>
-                                <div><span className="text-muted-foreground">Follow-ups:</span> {row.followUpCount}</div>
-                                <div><span className="text-muted-foreground">Stage:</span> {stageLabel(row.stage)}</div>
-                                <div className="col-span-full"><span className="text-muted-foreground">Notes:</span> {row.notesPreview || "—"}</div>
+                            <TableCell colSpan={7} style={{ background: "rgba(var(--theme-color-rgb), 0.015)" }} className="text-xs">
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, padding: "12px 16px" }}>
+                                <div><strong style={{ color: "hsl(var(--muted-foreground))" }}>Source:</strong> {row.companySource}</div>
+                                <div><strong style={{ color: "hsl(var(--muted-foreground))" }}>Type:</strong> {row.followUpType}</div>
+                                <div><strong style={{ color: "hsl(var(--muted-foreground))" }}>Follow-ups:</strong> {row.followUpCount}</div>
+                                <div><strong style={{ color: "hsl(var(--muted-foreground))" }}>Stage:</strong> {stageLabel(row.stage)}</div>
+                                <div style={{ gridColumn: "1 / -1" }}><strong style={{ color: "hsl(var(--muted-foreground))" }}>Notes:</strong> {row.notesPreview || "—"}</div>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -573,13 +675,25 @@ const FollowUpManagementPage = () => {
         </Card>
 
         {/* Pagination */}
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+          <span style={{ color: "hsl(var(--muted-foreground))", fontWeight: 500 }}>
             Page {pagination.page} of {pagination.totalPages} ({pagination.total} leads)
           </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-            <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              disabled={pagination.page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              style={{ padding: "6px 12px", border: "1px solid hsl(var(--border))", borderRadius: 8, background: "hsl(var(--card))", color: "hsl(var(--foreground))", fontSize: 11, fontWeight: 600, cursor: pagination.page <= 1 ? "not-allowed" : "pointer", opacity: pagination.page <= 1 ? 0.5 : 1 }}
+            >
+              Previous
+            </button>
+            <button
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              style={{ padding: "6px 12px", border: "1px solid hsl(var(--border))", borderRadius: 8, background: "hsl(var(--card))", color: "hsl(var(--foreground))", fontSize: 11, fontWeight: 600, cursor: pagination.page >= pagination.totalPages ? "not-allowed" : "pointer", opacity: pagination.page >= pagination.totalPages ? 0.5 : 1 }}
+            >
+              Next
+            </button>
           </div>
         </div>
 
