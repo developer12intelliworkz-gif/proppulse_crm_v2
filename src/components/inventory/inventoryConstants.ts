@@ -148,7 +148,21 @@ export const FACING_OPTIONS = [
 export const AREA_UNIT_OPTIONS = [
   { value: "sqft", label: "Sq. Ft" },
   { value: "sqyd", label: "Sq. Yd" },
+  { value: "sqm", label: "Sq. M" },
+  { value: "acre", label: "Acre" },
+  { value: "bigha", label: "Bigha" },
+  { value: "sector", label: "Sector" },
 ] as const;
+
+export const AREA_FIELDS_MODE_OPTIONS = [
+  { value: "carpet_only", label: "Carpet Area" },
+  { value: "super_only", label: "Super Builtup Area" },
+] as const;
+
+export const getAreaUnitLabel = (unit: string): string => {
+  const match = AREA_UNIT_OPTIONS.find((o) => o.value === unit);
+  return match?.label ?? "Sq. Ft";
+};
 
 export const STATUS_OPTIONS = [
   { value: "available", label: "Available", className: "bg-green-500" },

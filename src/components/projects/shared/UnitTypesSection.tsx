@@ -3,14 +3,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import axiosInstance from "@/api/axiosInstance";
 import { Plus, X } from "lucide-react";
+import { AREA_FIELDS_MODE_OPTIONS } from "@/components/inventory/inventoryConstants";
+import type { AreaFieldsMode } from "@/store/types/inventory";
+import { normalizeAreaFieldsMode } from "@/utils/areaConversion";
 
 export interface UnitTypeLabel {
   id: number;
   unit_name: string;
   label: string | null;
   is_active: boolean;
+  area_fields_mode?: AreaFieldsMode | string | null;
 }
 
 export interface UnitTypesSectionHandle {
@@ -29,6 +40,7 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
   ({ projectId, onChange }, ref) => {
     const [unitTypes, setUnitTypes] = useState<UnitTypeLabel[]>([]);
     const [newLabel, setNewLabel] = useState("");
+    const [newAreaMode, setNewAreaMode] = useState<AreaFieldsMode>("carpet_only");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -40,6 +52,7 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
         return;
       }
       setLoading(true);
+      setError("");
       try {
         const res = await axiosInstance.get(
           `/projects/${projectId}/unit-type-labels`,
@@ -47,8 +60,15 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
         const rows: UnitTypeLabel[] = res.data?.data ?? [];
         setUnitTypes(rows);
         onChange?.(rows);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
+        const message =
+          (err as { response?: { data?: { error?: string; details?: string } } })
+            ?.response?.data?.error ??
+          (err as { response?: { data?: { details?: string } } })?.response?.data
+            ?.details ??
+          "Failed to load unit types";
+        setError(message);
         setUnitTypes([]);
         onChange?.([]);
       } finally {
@@ -76,8 +96,9 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
       refresh: loadUnitTypes,
     }));
 
-    const handleAdd = async (labelInput?: string) => {
+    const handleAdd = async (labelInput?: string, areaMode?: AreaFieldsMode) => {
       const label = (labelInput ?? newLabel).trim();
+      const mode = areaMode ?? newAreaMode;
       if (!label || !projectId) return;
       if (label.length > 50) {
         setError("Unit type label must be 50 characters or fewer.");
@@ -88,13 +109,17 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
       try {
         await axiosInstance.post(`/projects/${projectId}/unit-type-labels`, {
           label,
+          area_fields_mode: mode,
         });
         setNewLabel("");
+        setNewAreaMode("carpet_only");
         await loadUnitTypes();
       } catch (err: unknown) {
+        const data = (err as { response?: { data?: { error?: string; details?: string } } })
+          ?.response?.data;
         const message =
-          (err as { response?: { data?: { error?: string } } })?.response?.data
-            ?.error ?? "Failed to add unit type";
+          [data?.error, data?.details].filter(Boolean).join(" — ") ||
+          "Failed to add unit type";
         setError(message);
       } finally {
         setSaving(false);
@@ -104,6 +129,7 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
     const handleRemove = async (typeId: number) => {
       if (!projectId) return;
       setSaving(true);
+      setError("");
       try {
         await axiosInstance.delete(
           `/projects/${projectId}/unit-type-labels/${typeId}`,
@@ -111,6 +137,39 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
         await loadUnitTypes();
       } catch (err) {
         console.error(err);
+        setError("Failed to remove unit type");
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const handleAreaFieldsModeChange = async (
+      typeId: number,
+      mode: AreaFieldsMode,
+    ) => {
+      if (!projectId) return;
+      setSaving(true);
+      setError("");
+      try {
+        const res = await axiosInstance.put(
+          `/projects/${projectId}/unit-type-labels/${typeId}`,
+          { area_fields_mode: mode },
+        );
+        const updated = res.data?.data;
+        setUnitTypes((prev) => {
+          const next = prev.map((row) =>
+            row.id === typeId
+              ? { ...row, area_fields_mode: updated?.area_fields_mode ?? mode }
+              : row,
+          );
+          onChange?.(next);
+          return next;
+        });
+      } catch (err: unknown) {
+        const message =
+          (err as { response?: { data?: { error?: string } } })?.response?.data
+            ?.error ?? "Failed to update area type";
+        setError(message);
       } finally {
         setSaving(false);
       }
@@ -143,7 +202,9 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
                 key={suggestion}
                 variant="outline"
                 className="cursor-pointer border-dashed hover:bg-primary/5 hover:border-primary/40 transition-colors"
-                onClick={() => projectId && !saving && handleAdd(suggestion)}
+                onClick={() =>
+                  projectId && !saving && handleAdd(suggestion, newAreaMode)
+                }
               >
                 + {suggestion}
               </Badge>
@@ -151,25 +212,52 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            placeholder="Custom label — e.g. Office, Showroom, 4 BHK"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            disabled={!projectId || saving}
-            maxLength={50}
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            onClick={() => handleAdd()}
-            disabled={!projectId || saving || !newLabel.trim()}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label>Unit type label</Label>
+            <Input
+              placeholder="e.g. Office, Showroom, 4 BHK"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+              disabled={!projectId || saving}
+              maxLength={50}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>Area type for this unit type</Label>
+            <Select
+              value={newAreaMode}
+              onValueChange={(v) => setNewAreaMode(v as AreaFieldsMode)}
+              disabled={!projectId || saving}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AREA_FIELDS_MODE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Units of this type will use Carpet Area or Super Builtup only.
+            </p>
+          </div>
         </div>
+
+        <Button
+          type="button"
+          onClick={() => handleAdd()}
+          disabled={!projectId || saving || !newLabel.trim()}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add unit type
+        </Button>
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading unit types...</p>
@@ -178,24 +266,56 @@ const UnitTypesSection = forwardRef<UnitTypesSectionHandle, UnitTypesSectionProp
             No unit types yet. Add at least one to continue.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/20 p-3">
+          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground px-1">
+              Configured unit types
+            </p>
             {unitTypes.map((type) => (
-              <Badge
+              <div
                 key={type.id}
-                variant="secondary"
-                className="gap-1 pr-1 text-sm py-1"
+                className="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 rounded-md border bg-background p-3"
               >
-                {displayLabel(type)}
-                <button
-                  type="button"
-                  className="ml-1 rounded-full hover:bg-background/80 p-0.5"
-                  onClick={() => handleRemove(type.id)}
-                  disabled={saving}
-                  aria-label={`Remove ${displayLabel(type)}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Badge variant="secondary" className="shrink-0 text-sm py-1">
+                    {displayLabel(type)}
+                  </Badge>
+                  <button
+                    type="button"
+                    className="rounded-full hover:bg-muted p-1 shrink-0"
+                    onClick={() => handleRemove(type.id)}
+                    disabled={saving}
+                    aria-label={`Remove ${displayLabel(type)}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="sm:w-72">
+                  <Label className="text-xs text-muted-foreground">
+                    Area type
+                  </Label>
+                  <Select
+                    value={normalizeAreaFieldsMode(type.area_fields_mode)}
+                    onValueChange={(v) =>
+                      void handleAreaFieldsModeChange(
+                        type.id,
+                        v as AreaFieldsMode,
+                      )
+                    }
+                    disabled={!projectId || saving}
+                  >
+                    <SelectTrigger className="h-9 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AREA_FIELDS_MODE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             ))}
           </div>
         )}

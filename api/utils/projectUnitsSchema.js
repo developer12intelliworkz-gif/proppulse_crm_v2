@@ -64,6 +64,12 @@ export async function getProjectUnitsSchema(forceRefresh = false) {
     : null;
   const hasParkingCol = columns.has("has_parking") ? "has_parking" : null;
   const parkingCountCol = columns.has("parking_count") ? "parking_count" : null;
+  const areaFieldsOverrideCol = columns.has("area_fields_override")
+    ? "area_fields_override"
+    : null;
+  const areaUnitOverrideCol = columns.has("area_unit_override")
+    ? "area_unit_override"
+    : null;
   const amenitiesCol = pickColumn(columns, ["amenities"]);
   const facingCol = pickColumn(columns, ["facing"]);
   const unitNumberCol = pickColumn(columns, ["unit_number", "unit_no", "name"]);
@@ -87,6 +93,8 @@ export async function getProjectUnitsSchema(forceRefresh = false) {
     superBuiltupAreaUnitCol,
     hasParkingCol,
     parkingCountCol,
+    areaFieldsOverrideCol,
+    areaUnitOverrideCol,
     amenitiesCol,
     facingCol,
     unitNumberCol,
@@ -177,6 +185,12 @@ export function buildUnitSelectSql(schema) {
     schema.parkingCountCol
       ? `u.${schema.parkingCountCol} AS parking_count`
       : "NULL::integer AS parking_count",
+    schema.areaFieldsOverrideCol
+      ? `u.${schema.areaFieldsOverrideCol} AS area_fields_override`
+      : "NULL::text AS area_fields_override",
+    schema.areaUnitOverrideCol
+      ? `u.${schema.areaUnitOverrideCol} AS area_unit_override`
+      : "NULL::text AS area_unit_override",
     schema.columns.has("unit_type_id")
       ? "u.unit_type_id AS unit_type_id"
       : "NULL::integer AS unit_type_id",
@@ -355,6 +369,8 @@ export function buildUnitInsertQuery(schema, projectId, payload, legacy = {}) {
   add("facing", payload.facing);
   add("has_parking", payload.has_parking);
   add("parking_count", payload.parking_count);
+  add("area_fields_override", payload.area_fields_override);
+  add("area_unit_override", payload.area_unit_override);
   add("amenities", JSON.stringify(payload.amenities ?? []), "jsonb");
   add("price", payload.price);
   add("lead_id", payload.lead_id);
@@ -404,6 +420,8 @@ export function buildUnitUpdateQuery(schema, projectId, unitId, payload, legacy 
   add("facing", payload.facing);
   add("has_parking", payload.has_parking);
   add("parking_count", payload.parking_count);
+  add("area_fields_override", payload.area_fields_override);
+  add("area_unit_override", payload.area_unit_override);
   add("amenities", JSON.stringify(payload.amenities ?? []), "jsonb");
   add("price", payload.price);
   add("lead_id", payload.lead_id);
@@ -444,6 +462,8 @@ function buildUnitReturningColumns(schema) {
   if (schema.superBuiltupAreaUnitCol) cols.push(schema.superBuiltupAreaUnitCol);
   if (schema.hasParkingCol) cols.push(schema.hasParkingCol);
   if (schema.parkingCountCol) cols.push(schema.parkingCountCol);
+  if (schema.areaFieldsOverrideCol) cols.push(schema.areaFieldsOverrideCol);
+  if (schema.areaUnitOverrideCol) cols.push(schema.areaUnitOverrideCol);
   if (schema.columns.has("unit_type_id")) cols.push("unit_type_id");
   if (schema.leadCol) cols.push(schema.leadCol);
   if (schema.columns.has("created_at")) cols.push("created_at");

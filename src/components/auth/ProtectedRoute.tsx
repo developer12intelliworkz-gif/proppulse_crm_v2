@@ -3,15 +3,19 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { isLeadsAccessRole } from "@/utils/rolePermissions";
+import OnboardingGuard from "./OnboardingGuard";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredPermission?: string;
+  /** Skip onboarding redirect (onboarding routes use the guard directly). */
+  skipOnboarding?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredPermission,
+  skipOnboarding = false,
 }) => {
   const { isAuthenticated, hasPermission, isLoading, user } = useAuth();
 
@@ -27,7 +31,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />;
   }
 
-  // Normal permission check
+  if (requiredPermission === "view_leads" && isLeadsAccessRole(user?.role)) {
+    const content = <>{children}</>;
+    return skipOnboarding ? content : <OnboardingGuard>{content}</OnboardingGuard>;
+  }
+
   if (requiredPermission && !hasPermission(requiredPermission)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -49,7 +57,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  return <>{children}</>;
+  const content = <>{children}</>;
+  return skipOnboarding ? content : <OnboardingGuard>{content}</OnboardingGuard>;
 };
 
 export default ProtectedRoute;

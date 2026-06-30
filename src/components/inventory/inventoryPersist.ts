@@ -13,6 +13,15 @@ import {
   parseFloorFromNodeName,
   sortFloorsTopToBottom,
 } from "@/utils/inventoryFloors";
+import {
+  computeTotalPriceFromSqft,
+  formatAreaDisplay,
+  fromCanonicalSqft,
+  normalizeAreaUnitCode,
+  resolveAreaSqftForPricing,
+  toCanonicalSqft,
+} from "@/utils/areaConversion";
+import type { AreaUnit } from "@/store/types/inventory";
 
 interface HierarchyNode {
   id: string;
@@ -85,13 +94,26 @@ const mapApiStatus = (status?: string): UnitStatus => {
 const mapApiUnitToInventoryUnit = (row: ApiUnitRow): InventoryUnit => {
   const id = String(row.id);
   const number = String(row.unit_number ?? id).trim();
-  const carpet =
+  const displayUnit = normalizeAreaUnitCode(
+    row.carpet_area_unit ?? row.super_builtup_area_unit,
+  ) as AreaUnit;
+
+  const carpetCanonical =
     row.carpet_area_sqft != null && row.carpet_area_sqft !== ""
-      ? String(row.carpet_area_sqft)
+      ? Number(row.carpet_area_sqft)
+      : null;
+  const superCanonical =
+    row.super_builtup_area_sqft != null && row.super_builtup_area_sqft !== ""
+      ? Number(row.super_builtup_area_sqft)
+      : null;
+
+  const carpet =
+    carpetCanonical != null
+      ? formatAreaDisplay(fromCanonicalSqft(carpetCanonical, displayUnit))
       : "";
   const superBuiltup =
-    row.super_builtup_area_sqft != null && row.super_builtup_area_sqft !== ""
-      ? String(row.super_builtup_area_sqft)
+    superCanonical != null
+      ? formatAreaDisplay(fromCanonicalSqft(superCanonical, displayUnit))
       : "";
 
   return {
@@ -100,17 +122,17 @@ const mapApiUnitToInventoryUnit = (row: ApiUnitRow): InventoryUnit => {
     unitName: number,
     area: carpet,
     super_builtup_area: superBuiltup,
-    areaUnit_carpet:
-      row.carpet_area_unit === "sqyd" ? "sqyd" : ("sqft" as const),
-    areaUnit_super:
-      row.super_builtup_area_unit === "sqyd" ? "sqyd" : ("sqft" as const),
+    areaUnit_carpet: displayUnit,
+    areaUnit_super: displayUnit,
     base_rate: row.base_rate != null ? String(row.base_rate) : "",
     total_price:
       row.total_price != null && Number.isFinite(Number(row.total_price))
         ? Number(row.total_price)
         : null,
     unit_type_id:
-      row.unit_type_id != null ? Number(row.unit_type_id) : null,
+      row.unit_type_id != null && row.unit_type_id !== ""
+        ? Number(row.unit_type_id)
+        : null,
     facing: row.facing ?? null,
     has_parking: Boolean(row.has_parking),
     parking_count:
@@ -250,6 +272,7 @@ interface UnitTypeRow {
   id: number;
   unit_name: string;
   label?: string | null;
+  area_fields_mode?: string | null;
 }
 
 const API_ALLOWED_STATUSES = new Set([
@@ -478,22 +501,27 @@ const parseOptionalArea = (value: string) => {
   return parsed;
 };
 
-const normalizeAreaUnit = (value?: string) => {
-  const normalized = (value || "sqft").toLowerCase();
-  if (normalized === "sqyard") return "sqyd";
-  return normalized === "sqyd" ? "sqyd" : "sqft";
-};
+const normalizeAreaUnit = (value?: string) =>
+  normalizeAreaUnitCode(value) as AreaUnit;
 
 const computeTotalPrice = (unit: InventoryUnit) => {
   if (unit.total_price !== null && unit.total_price !== undefined) {
     return unit.total_price;
   }
-  const carpet = parseCarpetArea(unit.area);
-  const superBuiltup = parseOptionalArea(unit.super_builtup_area) ?? 0;
   const rate = Number(unit.base_rate) || 0;
   if (rate <= 0) return null;
-  const saleableArea = superBuiltup > 0 ? superBuiltup : carpet;
-  return saleableArea * rate;
+
+  const carpetEntry = parseOptionalArea(unit.area);
+  const superEntry = parseOptionalArea(unit.super_builtup_area);
+  const displayUnit = normalizeAreaUnit(unit.areaUnit_carpet);
+
+  const carpetSqft =
+    carpetEntry !== null ? toCanonicalSqft(carpetEntry, displayUnit) : 0;
+  const superSqft =
+    superEntry !== null ? toCanonicalSqft(superEntry, displayUnit) : null;
+
+  const areaSqft = resolveAreaSqftForPricing(carpetSqft, superSqft);
+  return computeTotalPriceFromSqft(areaSqft, rate);
 };
 
 const mapUnitPayload = (
@@ -507,10 +535,28 @@ const mapUnitPayload = (
   }
 
   const unitTypeId = unit.unit_type_id ?? fallbackUnitTypeId;
-  const carpetArea = parseCarpetArea(unit.area);
-  const superBuiltup = parseOptionalArea(unit.super_builtup_area);
+  if (!unitTypeId) {
+    throw new Error("unit_type_id is required");
+  }
+
+  const displayUnit = normalizeAreaUnit(unit.areaUnit_carpet);
+  const carpetEntry = parseOptionalArea(unit.area);
+  const superEntry = parseOptionalArea(unit.super_builtup_area);
+
+  if (carpetEntry === null && superEntry === null) {
+    throw new Error("Area value is required");
+  }
+
+  const carpetSqft =
+    carpetEntry !== null ? toCanonicalSqft(carpetEntry, displayUnit) : null;
+  const superSqft =
+    superEntry !== null ? toCanonicalSqft(superEntry, displayUnit) : null;
   const baseRate = Number(unit.base_rate) || null;
-  const totalPrice = computeTotalPrice(unit);
+  const areaSqft = resolveAreaSqftForPricing(
+    carpetSqft ?? 0,
+    superSqft,
+  );
+  const totalPrice = computeTotalPriceFromSqft(areaSqft, baseRate);
 
   return {
     hierarchy_node_id: nodeId,
@@ -518,10 +564,10 @@ const mapUnitPayload = (
     unit_number: unitNumber,
     unit_type_id: unitTypeId,
     status: mapStatusForApi(unit.status),
-    carpet_area_sqft: carpetArea,
-    super_builtup_area_sqft: superBuiltup,
-    carpet_area_unit: normalizeAreaUnit(unit.areaUnit_carpet),
-    super_builtup_area_unit: normalizeAreaUnit(unit.areaUnit_super),
+    carpet_area_sqft: carpetEntry,
+    super_builtup_area_sqft: superEntry,
+    carpet_area_unit: displayUnit,
+    super_builtup_area_unit: displayUnit,
     base_rate: baseRate,
     total_price: totalPrice,
     facing: unit.facing || null,

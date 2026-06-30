@@ -16,16 +16,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Settings, Lock, Edit, Palette, Check, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, Lock, Edit, Palette, Check, Sun, Moon, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import EditProfileForm from "../users/EditProfileForm";
 import ChangePasswordForm from "../users/ChangePasswordForm";
-import axiosInstance from "@/api/axiosInstance"; // Assuming you have this configured
+import axiosInstance from "@/api/axiosInstance";
 import { formatRoleDisplayName } from "@/utils/formatDisplayName";
 import { getRoleBadgeClass } from "@/utils/dashboardHelpers";
 import { Badge } from "@/components/ui/badge";
 import { SECURITY_CONFIG } from "@/config/security";
 import { updateThemeColor, updateThemeMode } from "@/utils/themeManager";
+import { resolveCompanyId } from "@/utils/tenant";
+import { useBrand } from "@/contexts/BrandContext";
 
 // Define the User type to match the useAuth hook output
 interface User {
@@ -64,6 +66,7 @@ interface EditProfileFormProps {
 
 const Header = () => {
   const { user, logout } = useAuth();
+  const { brands, activeBrand, switchBrand } = useBrand();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [company, setCompany] = useState<CompanyData | null>(null);
@@ -105,7 +108,7 @@ const Header = () => {
     { name: "Slate", hex: "#334155" },
   ];
 
-  const companyId = "60c06a65-d9cb-4df7-89fc-4a77004a353d"; // Replace with actual ID
+  const companyId = resolveCompanyId(user);
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
@@ -120,7 +123,12 @@ const Header = () => {
       }
     };
     fetchCompanyData();
-  }, []);
+  }, [companyId]);
+
+  const displayTitle =
+    activeBrand?.brand_display_name ||
+    company?.name ||
+    (loading ? "Loading..." : error ? "Company CRM" : "Company CRM");
 
   const handleLogout = () => {
     logout();
@@ -130,14 +138,39 @@ const Header = () => {
     <>
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 sticky top-0 z-50 shadow-sm h-20 flex items-center">
         <div className="flex items-center justify-between w-full">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
-              {loading
-                ? "Loading..."
-                : error
-                ? "Company CRM"
-                : `${company?.name || "Company"} CRM`}
-            </h1>
+          <div className="min-w-0">
+            {brands.length > 1 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-auto px-0 py-1 font-bold text-gray-900 dark:text-slate-100 max-w-[280px] hover:bg-transparent"
+                  >
+                    <span className="truncate text-2xl">{displayTitle}</span>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel>Switch brand</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {brands.map((brand) => (
+                    <DropdownMenuItem
+                      key={brand.id}
+                      onClick={() => void switchBrand(brand.id)}
+                      className={
+                        brand.id === activeBrand?.id ? "font-medium" : ""
+                      }
+                    >
+                      {brand.brand_display_name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100 truncate">
+                {displayTitle}
+              </h1>
+            )}
             <p className="text-sm text-gray-600 dark:text-slate-400">Welcome back, {user?.name}</p>
           </div>
 

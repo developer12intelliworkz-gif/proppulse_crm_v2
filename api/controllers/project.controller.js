@@ -1340,6 +1340,11 @@ import {
   resolveZipForValidation,
   validateZipRequired,
 } from "../utils/projectRequestParse.js";
+import {
+  isValidAreaUnit,
+  normalizeAreaUnitCode,
+} from "../utils/areaConversion.js";
+import { ensureProjectsAreaColumns } from "../utils/projectsAreaSchema.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1746,6 +1751,19 @@ export const updateProject = [
       if (req.body.completed_steps !== undefined) {
         const steps = parseIntArrayField(req.body.completed_steps);
         setField("completed_steps", steps);
+      }
+
+      if (req.body.default_area_unit !== undefined) {
+        await ensureProjectsAreaColumns();
+        const normalizedUnit = normalizeAreaUnitCode(req.body.default_area_unit);
+        if (!isValidAreaUnit(normalizedUnit)) {
+          await client.query("ROLLBACK");
+          cleanupFiles(req.files);
+          return res.status(400).json({
+            error: "default_area_unit must be sqft, sqyd, sqm, acre, bigha, or sector",
+          });
+        }
+        setField("default_area_unit", normalizedUnit);
       }
 
       if (req.files?.vr_upload?.[0]) {

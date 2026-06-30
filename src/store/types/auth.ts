@@ -6,6 +6,8 @@ export interface User {
   phone?: string;
   photo?: string | null;
   roles_permissions_id?: string;
+  company_id?: string;
+  brand_id?: string;
 }
 
 export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {

@@ -2,29 +2,36 @@ import pool from "../../database/config.js";
 import { createNotificationsForEmails } from "./notification.controller.js";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
+import { ensureUploadDir, toPublicUploadPath } from "../utils/uploadPaths.js";
 
-// Get the directory name using import.meta.url
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure uploads directory exists at api/uploads
-const uploadDir = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const uploadDir = ensureUploadDir();
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}${path.extname(file.originalname)}`);
+  filename: (_req, file, cb) => {
+    const prefix = file.fieldname === "logo" ? "company" : "";
+    cb(
+      null,
+      `${prefix ? `${prefix}-` : ""}${Date.now()}${path.extname(file.originalname)}`,
+    );
   },
 });
 
-export const upload = multer({ storage });
+export const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
 
 export const createCompany = async (req, res) => {
   const {
@@ -228,14 +235,25 @@ export const createCompany = async (req, res) => {
 
 export const updateCompany = async (req, res) => {
   const { id } = req.params;
-  let input = req.body;
-  if (req.body.payload) {
-    input = JSON.parse(req.body.payload);
+  let input = { ...req.body };
+
+  if (typeof req.body.registration === "string") {
+    try {
+      input = { registration: JSON.parse(req.body.registration) };
+    } catch {
+      return res.status(400).json({ error: "Invalid registration payload" });
+    }
+  } else if (typeof req.body.payload === "string") {
+    try {
+      input = JSON.parse(req.body.payload);
+    } catch {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
   }
 
   let logo_url = input.basics?.logo || "";
   if (req.file) {
-    logo_url = `/api/uploads/${req.file.filename}`; // Store path relative to /api/uploads
+    logo_url = toPublicUploadPath(req.file.filename);
   }
 
   let client;
@@ -384,6 +402,65 @@ export const updateCompany = async (req, res) => {
       );
     }
 
+    if (input.registration) {
+      const r = input.registration;
+      let approvals = r.approvals;
+      if (typeof approvals === "string") {
+        try {
+          approvals = JSON.parse(approvals);
+        } catch {
+          approvals = [];
+        }
+      }
+      if (!Array.isArray(approvals)) approvals = [];
+
+      const lat =
+        r.latitude === "" || r.latitude === null || r.latitude === undefined
+          ? null
+          : Number(r.latitude);
+      const lng =
+        r.longitude === "" || r.longitude === null || r.longitude === undefined
+          ? null
+          : Number(r.longitude);
+
+      await client.query(
+        `
+        UPDATE companies SET
+          name = COALESCE($1, name),
+          pan_card = $2,
+          gst_no = $3,
+          registered_office_address = $4,
+          head_office_address = $5,
+          contact_person = $6,
+          contact_number_1 = $7,
+          contact_number_2 = $8,
+          company_location_search = $9,
+          latitude = $10,
+          longitude = $11,
+          approvals = $12::jsonb,
+          logo_url = COALESCE($13, logo_url),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $14
+        `,
+        [
+          r.companyName || null,
+          r.panCard || null,
+          r.gstNo || null,
+          r.registeredOfficeAddress || null,
+          r.headOfficeAddress || null,
+          r.contactPerson || null,
+          r.contactNumber1 || null,
+          r.contactNumber2 || null,
+          r.companyLocationPin || null,
+          Number.isFinite(lat) ? lat : null,
+          Number.isFinite(lng) ? lng : null,
+          JSON.stringify(approvals),
+          req.file ? logo_url : null,
+          id,
+        ]
+      );
+    }
+
     // Create notifications if provided
     if (input.notify_to_emails) {
       const emails = input.notify_to_emails
@@ -512,6 +589,16 @@ export const getCompanyById = async (req, res) => {
 
     const company = companyResult.rows[0];
     company.contacts = company.contacts || [];
+    if (company.approvals && typeof company.approvals === "string") {
+      try {
+        company.approvals = JSON.parse(company.approvals);
+      } catch {
+        company.approvals = [];
+      }
+    }
+    if (!Array.isArray(company.approvals)) {
+      company.approvals = [];
+    }
     res.json(company);
   } catch (error) {
     console.error("Error in getCompanyById:", error);

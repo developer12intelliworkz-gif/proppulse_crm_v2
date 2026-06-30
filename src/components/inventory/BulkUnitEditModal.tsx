@@ -20,7 +20,6 @@ import {
 import axiosInstance from "@/api/axiosInstance";
 import type { AreaUnit, InventoryUnit, UnitStatus } from "@/store/types/inventory";
 import {
-  AREA_UNIT_OPTIONS,
   FACING_OPTIONS,
   STATUS_OPTIONS,
 } from "./inventoryConstants";
@@ -350,49 +349,6 @@ const BulkUnitEditModal = ({
                   mixed(superUniform.uniform) ? "Mixed values" : "No change"
                 }
               />
-            </div>
-
-            <div>
-              <Label>Carpet unit</Label>
-              <Select
-                value={form.areaUnit_carpet}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, areaUnit_carpet: v }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="No change" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_CHANGE}>No change</SelectItem>
-                  {AREA_UNIT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Super built-up unit</Label>
-              <Select
-                value={form.areaUnit_super}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, areaUnit_super: v }))
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="No change" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_CHANGE}>No change</SelectItem>
-                  {AREA_UNIT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="sm:col-span-2">

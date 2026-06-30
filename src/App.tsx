@@ -6,8 +6,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { BrandProvider } from "./contexts/BrandContext";
 import { LeadsProvider } from "./contexts/LeadsContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import AuthenticatedRedirect from "./components/auth/AuthenticatedRedirect";
+import OnboardingWizard from "./components/onboarding/OnboardingWizard";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Index from "./pages/Index";
@@ -35,6 +38,7 @@ import Imports from "./components/settings/Imports";
 import NotificationSettings from "./components/settings/NotificationSettings";
 import CustomFields from "./components/settings/CustomFields";
 import CompanyDetails from "./components/settings/CompanyDetails";
+import BrandRegistration from "./components/settings/BrandRegistration";
 import ReassignmentLeads from "./components/settings/ReassignmentLeads";
 import Goals from "./components/settings/Goals";
 import Download from "./components/settings/Download";
@@ -66,18 +70,35 @@ const AppRoutes = () => {
 
   return (
     <LeadsProvider>
+      <BrandProvider>
       <Routes>
         <Route
           path="/login"
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            isAuthenticated ? <AuthenticatedRedirect /> : <Login />
           }
         />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/"
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            isAuthenticated ? <AuthenticatedRedirect /> : <Login />
+          }
+        />
+        <Route
+          path="/onboarding/company"
+          element={<Navigate to="/onboarding/step1" replace />}
+        />
+        <Route
+          path="/onboarding/brand"
+          element={<Navigate to="/onboarding/step2" replace />}
+        />
+        <Route
+          path="/onboarding/*"
+          element={
+            <ProtectedRoute skipOnboarding>
+              <OnboardingWizard />
+            </ProtectedRoute>
           }
         />
         <Route
@@ -389,6 +410,16 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/settings/brand-registration"
+          element={
+            <ProtectedRoute requiredPermission="view_settings">
+              <Layout>
+                <BrandRegistration />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/settings/goals"
           element={
             <ProtectedRoute requiredPermission="view_settings">
@@ -460,6 +491,7 @@ const AppRoutes = () => {
         />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </BrandProvider>
     </LeadsProvider>
   );
 };

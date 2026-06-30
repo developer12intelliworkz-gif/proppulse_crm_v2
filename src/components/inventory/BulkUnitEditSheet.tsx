@@ -30,7 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import axiosInstance from "@/api/axiosInstance";
 import type { AreaUnit, InventoryUnit } from "@/store/types/inventory";
-import { AREA_UNIT_OPTIONS, FACING_OPTIONS } from "./inventoryConstants";
+import { FACING_OPTIONS, getAreaUnitLabel } from "./inventoryConstants";
 import { getUnitsWithLocationByIds } from "./unitSelectionUtils";
 import type { InventoryState } from "@/store/types/inventory";
 import { persistBulkInventoryUnits } from "./inventoryPersist";
@@ -400,8 +400,7 @@ const BulkUnitEditSheet = ({
     }
   };
 
-  const areaUnitLabel = (u: AreaUnit) =>
-    AREA_UNIT_OPTIONS.find((o) => o.value === u)?.label ?? u;
+  const areaUnitLabel = (u: AreaUnit) => getAreaUnitLabel(u);
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -428,82 +427,48 @@ const BulkUnitEditSheet = ({
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <Label>Carpet Area</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="decimal"
-                      value={form.area}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, area: e.target.value }))
-                      }
-                      placeholder="1200"
-                      className="flex-1 min-w-0"
-                    />
-                    <Select
-                      value={form.areaUnit_carpet}
-                      onValueChange={(v) =>
-                        setForm((f) => ({
-                          ...f,
-                          areaUnit_carpet: v as AreaUnit,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-24 shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AREA_UNIT_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label>
+                    Carpet Area{" "}
+                    <span className="text-muted-foreground font-normal">
+                      ({getAreaUnitLabel(form.areaUnit_carpet)})
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={form.area}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, area: e.target.value }))
+                    }
+                    placeholder="1200"
+                    className="mt-1"
+                  />
                 </div>
 
                 <div>
-                  <Label>Super Builtup Area</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="decimal"
-                      value={form.super_builtup_area}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          super_builtup_area: e.target.value,
-                        }))
-                      }
-                      placeholder="1400"
-                      className="flex-1 min-w-0"
-                    />
-                    <Select
-                      value={form.areaUnit_super}
-                      onValueChange={(v) =>
-                        setForm((f) => ({
-                          ...f,
-                          areaUnit_super: v as AreaUnit,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-24 shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AREA_UNIT_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label>
+                    Super Builtup Area{" "}
+                    <span className="text-muted-foreground font-normal">
+                      ({getAreaUnitLabel(form.areaUnit_super)})
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={form.super_builtup_area}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        super_builtup_area: e.target.value,
+                      }))
+                    }
+                    placeholder="1400"
+                    className="mt-1"
+                  />
                 </div>
 
                 <div>
@@ -532,7 +497,7 @@ const BulkUnitEditSheet = ({
                     className="mt-1 bg-muted font-medium"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Super Builtup Area (or Carpet Area if empty) × Base Rate
+                    Area × Base Rate (canonical sq.ft)
                   </p>
                 </div>
               </div>
