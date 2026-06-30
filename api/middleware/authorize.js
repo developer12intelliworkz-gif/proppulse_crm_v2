@@ -50,9 +50,12 @@ export const requirePermission = (permission) => {
         permissionsArray = [];
       }
 
-      if (!permissionsArray.includes(permission)) {
+      const required = Array.isArray(permission) ? permission : [permission];
+      const hasAny = required.some((p) => permissionsArray.includes(p));
+
+      if (!hasAny) {
         return res.status(403).json({ 
-          error: `Access denied: requires permission '${permission}'` 
+          error: `Access denied: requires one of permissions [${required.join(", ")}]` 
         });
       }
 

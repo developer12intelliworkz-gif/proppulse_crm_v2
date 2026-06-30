@@ -238,9 +238,11 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
     try {
       setProjects((await axiosInstance.get("/projects")).data.data);
     } catch (e: any) {
-      if (e.response?.status === 403) logout();
+      if (e.response?.status === 403) {
+        console.warn("Lacks view_projects permission to load projects lists");
+      }
     }
-  }, [isAuthenticated, token, navigate, logout]);
+  }, [isAuthenticated, token, navigate]);
 
   const fetchUsers = useCallback(async () => {
     if (!isAuthenticated || !token) return navigate("/login");
@@ -251,9 +253,11 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
       );
       setUsersMap(usersData);
     } catch (e: any) {
-      if (e.response?.status === 403) logout();
+      if (e.response?.status === 403) {
+        console.warn("Lacks manage_users permission to load users mapping");
+      }
     }
-  }, [isAuthenticated, token, navigate, logout]);
+  }, [isAuthenticated, token, navigate]);
 
   const fetchCounts = useCallback(async () => {
     if (!isAuthenticated || !token) return navigate("/login");
@@ -286,9 +290,11 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
     try {
       setLeadTypes((await axiosInstance.get("/leadtype")).data || []);
     } catch (e: any) {
-      if (e.response?.status === 403) logout();
+      if (e.response?.status === 403) {
+        console.warn("Lacks manage_lead_types permission to load lead types");
+      }
     }
-  }, [isAuthenticated, token, navigate, logout]);
+  }, [isAuthenticated, token, navigate]);
 
   const leadTypeCounts = useMemo(() => {
     const c: { [k: string]: number } = { all: allLeads.length };
@@ -467,7 +473,13 @@ const ListingLeads: React.FC<ListingLeadsProps> = ({
           fetchLeadTypes(),
         ]);
       } catch (e: any) {
-        if (e.response?.status === 403) logout();
+        if (e.response?.status === 403) {
+          toast({
+            title: "Access Denied",
+            description: "You don't have permission to edit leads.",
+            variant: "destructive",
+          });
+        }
         // Revert or sync from server if call fails
         fetchLeads(true, filterText, selectedLeadType);
       }

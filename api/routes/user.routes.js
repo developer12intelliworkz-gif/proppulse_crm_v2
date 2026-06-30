@@ -45,7 +45,7 @@ const upload = multer({
 const router = express.Router();
 
 // GET all users
-router.get("/users", authenticateToken, requirePermission("manage_users"), async (req, res) => {
+router.get("/users", authenticateToken, requirePermission(["manage_users", "view_leads", "view_projects"]), async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT u.id, u.name, u.email, u.phone, rp.role_name AS role, u.is_active, u.created_at, u.last_login, u.photo, u.roles_permissions_id 

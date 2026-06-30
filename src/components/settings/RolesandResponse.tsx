@@ -67,7 +67,7 @@ const permissionMap: {
   Projects: {
     View: "view_projects",
     Create: "create_projects",
-    Update: "edit_projects",
+    Update: ["edit_projects", "manage_project"],
     Delete: "delete_projects",
     Import: "import_projects",
     Export: "export_projects",
