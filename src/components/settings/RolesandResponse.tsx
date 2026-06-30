@@ -59,7 +59,7 @@ const permissionMap: {
   Leads: {
     View: "view_leads",
     Create: "create_leads",
-    Update: "assign_leads",
+    Update: ["assign_leads", "edit_leads"],
     Delete: "delete_leads",
     Import: "import_leads",
     Export: "export_leads",

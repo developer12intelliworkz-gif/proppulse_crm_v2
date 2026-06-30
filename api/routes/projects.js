@@ -212,8 +212,8 @@ router.post("/:projectId/units", authenticateToken, requirePermission("manage_pr
 router.get("/:projectId/units", authenticateToken, requirePermission("view_projects"), getUnitsByProject);
 router.get("/:projectId/units/:unitId", authenticateToken, requirePermission("view_projects"), getUnitById);
 router.put("/:projectId/units/:unitId", authenticateToken, requirePermission("manage_project"), updateUnit);
-router.patch("/:projectId/units/bulk/status", authenticateToken, requirePermission("manage_project"), bulkPatchUnitStatus);
-router.patch("/:projectId/units/:unitId/status", authenticateToken, requirePermission("manage_project"), patchUnitStatus);
+router.patch("/:projectId/units/bulk/status", authenticateToken, requirePermission(["manage_project", "edit_projects", "view_projects"]), bulkPatchUnitStatus);
+router.patch("/:projectId/units/:unitId/status", authenticateToken, requirePermission(["manage_project", "edit_projects", "view_projects"]), patchUnitStatus);
 router.delete("/:projectId/units/:unitId", authenticateToken, requirePermission("manage_project"), deleteUnit);
 
 export default router;
