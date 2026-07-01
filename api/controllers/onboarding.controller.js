@@ -8,6 +8,7 @@ import {
   linkUserToBrand,
 } from "../utils/onboarding.js";
 import { ensureUploadDir, toPublicUploadPath } from "../utils/uploadPaths.js";
+import { saveRegistrationBundle } from "../utils/companyRegistration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,78 +78,24 @@ async function resolveAdminRoleId(client) {
   return anyRes.rows[0]?.id ?? null;
 }
 
-function parseRegistration(registration) {
-  const r = registration;
-  let approvals = r.approvals;
-  if (typeof approvals === "string") {
-    try {
-      approvals = JSON.parse(approvals);
-    } catch {
-      approvals = [];
-    }
-  }
-  if (!Array.isArray(approvals)) approvals = [];
-
-  const lat =
-    r.latitude === "" || r.latitude === null || r.latitude === undefined
-      ? null
-      : Number(r.latitude);
-  const lng =
-    r.longitude === "" || r.longitude === null || r.longitude === undefined
-      ? null
-      : Number(r.longitude);
-
-  return {
-    companyName: r.companyName?.trim() || "",
-    panCard: r.panCard || null,
-    gstNo: r.gstNo || null,
-    registeredOfficeAddress: r.registeredOfficeAddress || null,
-    headOfficeAddress: r.headOfficeAddress || null,
-    contactPerson: r.contactPerson || null,
-    contactNumber1: r.contactNumber1 || null,
-    contactNumber2: r.contactNumber2 || null,
-    companyLocationPin: r.companyLocationPin || null,
-    latitude: Number.isFinite(lat) ? lat : null,
-    longitude: Number.isFinite(lng) ? lng : null,
-    approvals: JSON.stringify(approvals),
-  };
-}
-
 async function insertCompany(client, registration, userId, logoUrl = null) {
-  const parsed = parseRegistration(registration);
-  if (!parsed.companyName) {
+  const companyName = registration.companyName?.trim();
+  if (!companyName) {
     const err = new Error("Company name is required");
     err.statusCode = 400;
     throw err;
   }
 
   const companyRes = await client.query(
-    `INSERT INTO companies (
-       name, pan_card, gst_no, registered_office_address, head_office_address,
-       contact_person, contact_number_1, contact_number_2,
-       company_location_search, latitude, longitude, approvals,
-       logo_url, created_by, created_at, updated_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `INSERT INTO companies (name, logo_url, created_by, created_at, updated_at)
+     VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
      RETURNING *`,
-    [
-      parsed.companyName,
-      parsed.panCard,
-      parsed.gstNo,
-      parsed.registeredOfficeAddress,
-      parsed.headOfficeAddress,
-      parsed.contactPerson,
-      parsed.contactNumber1,
-      parsed.contactNumber2,
-      parsed.companyLocationPin,
-      parsed.latitude,
-      parsed.longitude,
-      parsed.approvals,
-      logoUrl,
-      userId,
-    ],
+    [companyName, logoUrl, userId],
   );
 
-  return companyRes.rows[0];
+  const company = companyRes.rows[0];
+  await saveRegistrationBundle(client, company.id, registration, logoUrl);
+  return company;
 }
 
 export const fetchOnboardingStatus = async (req, res) => {
