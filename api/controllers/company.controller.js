@@ -4,6 +4,7 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ensureUploadDir, toPublicUploadPath } from "../utils/uploadPaths.js";
+import { saveRegistrationBundle } from "../utils/companyRegistration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -403,62 +404,8 @@ export const updateCompany = async (req, res) => {
     }
 
     if (input.registration) {
-      const r = input.registration;
-      let approvals = r.approvals;
-      if (typeof approvals === "string") {
-        try {
-          approvals = JSON.parse(approvals);
-        } catch {
-          approvals = [];
-        }
-      }
-      if (!Array.isArray(approvals)) approvals = [];
-
-      const lat =
-        r.latitude === "" || r.latitude === null || r.latitude === undefined
-          ? null
-          : Number(r.latitude);
-      const lng =
-        r.longitude === "" || r.longitude === null || r.longitude === undefined
-          ? null
-          : Number(r.longitude);
-
-      await client.query(
-        `
-        UPDATE companies SET
-          name = COALESCE($1, name),
-          pan_card = $2,
-          gst_no = $3,
-          registered_office_address = $4,
-          head_office_address = $5,
-          contact_person = $6,
-          contact_number_1 = $7,
-          contact_number_2 = $8,
-          company_location_search = $9,
-          latitude = $10,
-          longitude = $11,
-          approvals = $12::jsonb,
-          logo_url = COALESCE($13, logo_url),
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $14
-        `,
-        [
-          r.companyName || null,
-          r.panCard || null,
-          r.gstNo || null,
-          r.registeredOfficeAddress || null,
-          r.headOfficeAddress || null,
-          r.contactPerson || null,
-          r.contactNumber1 || null,
-          r.contactNumber2 || null,
-          r.companyLocationPin || null,
-          Number.isFinite(lat) ? lat : null,
-          Number.isFinite(lng) ? lng : null,
-          JSON.stringify(approvals),
-          req.file ? logo_url : null,
-          id,
-        ]
-      );
+      const uploadedLogo = req.file ? logo_url : null;
+      await saveRegistrationBundle(client, id, input.registration, uploadedLogo);
     }
 
     // Create notifications if provided

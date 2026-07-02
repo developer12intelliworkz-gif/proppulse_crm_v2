@@ -36,6 +36,13 @@ export async function ensureOnboardingSchema() {
     "migration",
     "2026-06-15-company-registration-brands.sql",
   );
+  const companyConsolidatedMigration = path.join(
+    __dirname,
+    "..",
+    "..",
+    "migration",
+    "2026-07-01-company-registration-consolidated.sql",
+  );
   const multiTenantMigration = path.join(
     __dirname,
     "..",
@@ -46,6 +53,7 @@ export async function ensureOnboardingSchema() {
 
   const files = [
     companyBrandsMigration,
+    companyConsolidatedMigration,
     multiTenantMigration,
     brandIdMigration,
     migrationPath,

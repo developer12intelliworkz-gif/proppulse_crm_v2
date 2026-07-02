@@ -135,7 +135,7 @@ function getLetterheadPdfPath() {
 
 async function getTemplateById(templateId) {
   const tpl = await pool.query(
-    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
+    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, theme, created_at, updated_at
      FROM quotation_templates
      WHERE id = $1
      LIMIT 1`,
@@ -156,7 +156,7 @@ async function getTemplateById(templateId) {
 
 async function listTemplatesByProject(projectId) {
   const res = await pool.query(
-    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
+    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, theme, created_at, updated_at
      FROM quotation_templates
      WHERE project_id = $1
      ORDER BY is_active DESC, created_at DESC`,
@@ -231,7 +231,7 @@ export const getProjectsWithQuotationStatus = async (req, res) => {
 };
 
 export const upsertQuotationTemplate = async (req, res) => {
-  const { project_id, template_name, is_active, has_terrace_units, particulars, terms_and_conditions } = req.body;
+  const { project_id, template_name, is_active, has_terrace_units, particulars, terms_and_conditions, theme } = req.body;
 
   if (!project_id) {
     return res.status(400).json({ error: "project_id is required" });
@@ -316,8 +316,8 @@ export const upsertQuotationTemplate = async (req, res) => {
 
     const tpl = await client.query(
       `INSERT INTO quotation_templates (
-         project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+         project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, theme, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
        RETURNING *`,
       [
         project_id,
@@ -326,6 +326,7 @@ export const upsertQuotationTemplate = async (req, res) => {
         willBeActive,
         !!has_terrace_units,
         terms_and_conditions || null,
+        theme || 'gold',
       ],
     );
 
@@ -616,13 +617,13 @@ export const generateQuotation = async (req, res) => {
          quotation_number, client_name, quotation_date,
          base_price, carpet_area, super_builtup_area,
          total_amount, particulars_snapshot, status, notes,
-         terms_and_conditions, created_at, updated_at
+         terms_and_conditions, theme, created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4,
          $5, $6, COALESCE($7::date, CURRENT_DATE),
          $8, $9, $10,
          $11, $12::jsonb, $13, $14,
-         $15, NOW(), NOW()
+         $15, $16, NOW(), NOW()
        )
        RETURNING *`,
       [
@@ -641,6 +642,7 @@ export const generateQuotation = async (req, res) => {
         requestedStatus,
         notes || null,
         tpl.terms_and_conditions || null,
+        tpl.theme || 'gold',
       ],
     );
 
@@ -771,8 +773,21 @@ export const generateQuotationPdf = async (req, res) => {
     }
     const formattedAddress = addressParts.join(", ");
 
-    const contactPhone = companyContact?.phone || "";
-    const contactEmail = companyContact?.email || "";
+    // Fetch logged-in user profile details (name, email, phone) to override footer contacts
+    let loggedInUser = {};
+    if (req.user && req.user.id) {
+      try {
+        const userRes = await pool.query(`SELECT name, email, phone FROM users WHERE id = $1`, [req.user.id]);
+        if (userRes.rowCount > 0) {
+          loggedInUser = userRes.rows[0];
+        }
+      } catch (userErr) {
+        console.warn("Could not fetch logged-in user for contacts:", userErr.message);
+      }
+    }
+
+    const contactPhone = loggedInUser.phone || companyContact?.phone || "";
+    const contactEmail = loggedInUser.email || companyContact?.email || "";
     const companyWebsite = company?.website_url || "";
 
     const letterheadPath = getLetterheadPdfPath();
@@ -802,6 +817,55 @@ export const generateQuotationPdf = async (req, res) => {
     const tableWidth = pageWidth - marginX * 2;
 
     const yFromTop = (yTop) => pageHeight - yTop;
+
+    // Dynamic Color Schemes supporting 4 distinct themes
+    const THEMES = {
+      gold: {
+        headerBlue: rgb(0.11, 0.16, 0.24), // #1c2a3d Dark slate blue
+        goldColor: rgb(0.79, 0.60, 0.18),  // #c9992f Gold
+        goldLight: rgb(0.90, 0.78, 0.47),  // #e6c778 Light Gold
+        accentGold: rgb(0.66, 0.46, 0.16), // #a9762a Accent Gold
+        borderGrey: rgb(0.93, 0.91, 0.85), // #ece7d9 Card Border
+        rowZebra: rgb(0.98, 0.98, 0.96),   // Even row light beige
+        textGrey: rgb(0.42, 0.45, 0.50),   // #6b7280
+        textBlack: rgb(0.13, 0.14, 0.17),  // #20242b
+      },
+      indigo: {
+        headerBlue: rgb(0.12, 0.11, 0.29), // #1e1b4b Dark indigo
+        goldColor: rgb(0.39, 0.40, 0.95),  // #6366f1 Indigo Accent
+        goldLight: rgb(0.64, 0.66, 0.98),  // #a5b4fc Light Indigo
+        accentGold: rgb(0.31, 0.27, 0.70), // #4f46e5 Darker Indigo Accent
+        borderGrey: rgb(0.88, 0.90, 0.96), // Light blue-grey border
+        rowZebra: rgb(0.95, 0.96, 0.99),   // Even row light indigo tint
+        textGrey: rgb(0.40, 0.43, 0.50),
+        textBlack: rgb(0.10, 0.11, 0.15),
+      },
+      emerald: {
+        headerBlue: rgb(0.02, 0.16, 0.12), // #064e3b Deep Emerald
+        goldColor: rgb(0.02, 0.59, 0.41),  // #059669 Emerald Accent
+        goldLight: rgb(0.43, 0.82, 0.67),  // #6ee7b7 Light Emerald
+        accentGold: rgb(0.04, 0.47, 0.33), // #047857 Darker Emerald
+        borderGrey: rgb(0.86, 0.92, 0.89), // Light green-grey border
+        rowZebra: rgb(0.95, 0.98, 0.96),   // Even row light emerald tint
+        textGrey: rgb(0.38, 0.45, 0.41),
+        textBlack: rgb(0.08, 0.12, 0.10),
+      },
+      orange: {
+        headerBlue: rgb(0.27, 0.10, 0.01), // #451a03 Warm Dark Brown / Terracotta
+        goldColor: rgb(0.85, 0.47, 0.02),  // #d97706 Amber / Orange
+        goldLight: rgb(0.99, 0.76, 0.39),  // #fcd34d Light Amber
+        accentGold: rgb(0.71, 0.34, 0.02), // #b45309 Accent Amber
+        borderGrey: rgb(0.94, 0.90, 0.84), // Light brown-grey border
+        rowZebra: rgb(0.99, 0.97, 0.94),   // Even row warm tint
+        textGrey: rgb(0.46, 0.42, 0.38),
+        textBlack: rgb(0.15, 0.12, 0.10),
+      }
+    };
+
+    const activeThemeKey = String(quotation.theme || "gold").toLowerCase();
+    const activeTheme = THEMES[activeThemeKey] || THEMES.gold;
+    const { headerBlue, goldColor, goldLight, accentGold, borderGrey, rowZebra, textGrey, textBlack } = activeTheme;
+    const bgLight = rgb(1, 1, 1);             // Plain white background
 
     const drawText = (text, x, yTop, size = 10, bold = false, colorVal = rgb(0, 0, 0)) => {
       page.drawText(String(text || ""), {
@@ -938,16 +1002,6 @@ export const generateQuotationPdf = async (req, res) => {
         }
       }
     }
-
-    // Colors matching user Poppins mockup
-    const headerBlue = rgb(0.11, 0.16, 0.24); // #1c2a3d Dark slate blue
-    const goldColor = rgb(0.79, 0.60, 0.18);  // #c9992f Gold
-    const goldLight = rgb(0.90, 0.78, 0.47);  // #e6c778 Light Gold
-    const accentGold = rgb(0.66, 0.46, 0.16); // #a9762a Accent Gold
-    const borderGrey = rgb(0.93, 0.91, 0.85); // #ece7d9 Card Border
-    const bgLight = rgb(1, 1, 1);             // Plain white background
-    const textGrey = rgb(0.42, 0.45, 0.50);   // #6b7280
-    const textBlack = rgb(0.13, 0.14, 0.17);  // #20242b
 
     // Draw Brand Logo (left)
     if (logoImage) {
@@ -1204,7 +1258,7 @@ export const generateQuotationPdf = async (req, res) => {
           y: yFromTop(y + rowH),
           width: tableWidth,
           height: rowH,
-          color: rgb(0.98, 0.98, 0.96),
+          color: rowZebra,
         });
       }
 
@@ -1288,7 +1342,7 @@ export const generateQuotationPdf = async (req, res) => {
       y: yFromTop(y + 30),
       size: 18,
       font: fontBold,
-      color: rgb(0.95, 0.85, 0.59),
+      color: goldLight,
     });
 
     y += 65;
