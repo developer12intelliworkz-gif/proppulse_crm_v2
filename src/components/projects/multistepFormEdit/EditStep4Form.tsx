@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useEditForm } from './EditFormContext';
 import { Building2, Layers } from 'lucide-react';
 import AmenitiesSection from '../shared/AmenitiesSection';
+import DefaultAreaUnitSection from '../shared/DefaultAreaUnitSection';
 import UnitTypesSection, {
   type UnitTypesSectionHandle,
 } from '../shared/UnitTypesSection';
@@ -60,6 +61,18 @@ const EditStep4Form = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <Card className="h-full lg:col-span-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Area Measurement</CardTitle>
+              <CardDescription>
+                Default unit for carpet and super builtup areas across this project
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DefaultAreaUnitSection projectId={projectId ?? null} />
+            </CardContent>
+          </Card>
+
           <Card className="h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">

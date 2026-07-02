@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import QuillEditor from "@/components/ui/QuillEditor";
 import {
   Select,
   SelectContent,
@@ -166,6 +168,7 @@ const ProjectQuotations = () => {
   const [rows, setRows] = useState<Particular[]>([]);
   const [templates, setTemplates] = useState<Array<{ id: string; template_name: string; version: number }>>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [termsAndConditions, setTermsAndConditions] = useState("");
 
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(false);
@@ -182,6 +185,7 @@ const ProjectQuotations = () => {
   const [terraceArea, setTerraceArea] = useState<number>(0);
   const [terraceRate, setTerraceRate] = useState<number>(0);
   const [excludedOptional, setExcludedOptional] = useState<Set<string>>(new Set());
+  const [signatureType, setSignatureType] = useState<"digital" | "physical">("digital");
 
   const loadTemplates = async () => {
     if (!projectId) return;
@@ -224,10 +228,12 @@ const ProjectQuotations = () => {
         setTemplateName("");
         setHasTerrace(false);
         setRows([]);
+        setTermsAndConditions("");
         return;
       }
       setTemplate(tpl);
       setTemplateName(tpl.template_name);
+      setTermsAndConditions((tpl as any).terms_and_conditions || "");
       setHasTerrace(!!tpl.has_terrace_units);
       setRows(
         (tpl.particulars || []).map((p, idx) => ({
@@ -367,6 +373,7 @@ const ProjectQuotations = () => {
         is_active: true,
         has_terrace_units: hasTerrace,
         particulars: particularsToSave,
+        terms_and_conditions: termsAndConditions,
       };
       const res = await axiosInstance.post("/quotation-templates", payload);
       const savedId = res.data?.data?.id;
@@ -388,14 +395,20 @@ const ProjectQuotations = () => {
   };
 
   const preview = useMemo(() => {
-    const exampleSuper = 84.93;
-    const exampleCarpet = 100;
-    const exampleRate = 8500;
+    const exampleSuper = 0;
+    const exampleCarpet = 1500;
+    const exampleRate = 5000;
     const excluded = new Set<string>();
     return computePreview({
-      particulars: (template?.particulars || []).length
-        ? template!.particulars
-        : (rows as any),
+      particulars: rows.map((r, idx) => ({
+        id: r.id || String(idx),
+        label: r.label,
+        calculation_type: r.calculation_type,
+        value: r.value,
+        include_in_subtotal: true,
+        sort_order: r.sort_order || idx,
+        is_optional: r.is_optional,
+      })),
       areas: { superBuiltup: exampleSuper, carpet: exampleCarpet, terrace: 0 },
       unit: {
         base_rate: exampleRate,
@@ -406,7 +419,7 @@ const ProjectQuotations = () => {
       },
       excludedOptionalIds: excluded,
     });
-  }, [hasTerrace, rows, template]);
+  }, [rows]);
 
   const openGenerate = (u: UnitRow) => {
     setSelectedUnit(u);
@@ -445,7 +458,7 @@ const ProjectQuotations = () => {
       if (downloadPdf && quotation?.id) {
         const pdfRes = await axiosInstance.post(
           `/quotations/${quotation.id}/pdf`,
-          {},
+          { signature_type: signatureType },
           { responseType: "blob" },
         );
         const blob = new Blob([pdfRes.data], { type: "application/pdf" });
@@ -676,6 +689,18 @@ const ProjectQuotations = () => {
                 </table>
               </div>
 
+              <div className="space-y-2 mb-6">
+                <Label className="font-semibold text-slate-700 dark:text-slate-300">Terms & Conditions</Label>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
+                  <QuillEditor
+                    value={termsAndConditions}
+                    onChange={setTermsAndConditions}
+                    placeholder="Enter template terms & conditions..."
+                    className="min-h-[150px]"
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={addRow}>
                   Add Particular
@@ -690,31 +715,116 @@ const ProjectQuotations = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Live Preview (Example)</CardTitle>
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden bg-[#F8FAFC] dark:bg-slate-950">
+            <CardHeader className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+              <CardTitle className="text-slate-800 dark:text-slate-200 flex items-center justify-between text-base">
+                <span>Quotation Template Live Preview</span>
+                <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900">
+                  Interactive Mock
+                </Badge>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="text-muted-foreground">
-                Example: Carpet = 100, Super = 84.93, Rate = ₹8,500
-              </div>
-              <div className="border rounded-md">
-                <div className="flex justify-between p-2 border-b">
-                  <span className="font-medium">Total Basic Price</span>
-                  <span>₹ {preview.basicPrice.toLocaleString("en-IN")}</span>
-                </div>
-                {preview.items.map((it, idx) => (
-                  <div
-                    key={it.id || `${it.label}-${idx}`}
-                    className="flex justify-between p-2 border-b"
-                  >
-                    <span>{it.label}</span>
-                    <span>₹ {Number(it.total || 0).toLocaleString("en-IN")}</span>
+            <CardContent className="p-6">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm p-5 space-y-5 max-w-[550px] mx-auto">
+                {/* Header Banner */}
+                <div className="bg-[#0F4C81] text-white p-5 rounded-md flex justify-between items-center select-none">
+                  <div>
+                    <h2 className="text-base font-bold tracking-tight">SHYAM GROUP</h2>
+                    <p className="text-[10px] opacity-90 mt-0.5">Premium Residential Projects</p>
+                    <p className="text-[10px] opacity-90">Ahmedabad, Gujarat</p>
                   </div>
-                ))}
-                <div className="flex justify-between p-2 font-semibold">
-                  <span>Grand Total</span>
-                  <span>₹ {preview.grandTotal.toLocaleString("en-IN")}</span>
+                  <div className="text-right">
+                    <h3 className="text-sm font-black tracking-wider text-blue-200">QUOTATION</h3>
+                    <p className="text-[9px] opacity-90 mt-0.5">No: QT-2026-XXXXX</p>
+                    <p className="text-[9px] opacity-90">Date: {new Date().toLocaleDateString('en-CA')}</p>
+                  </div>
+                </div>
+
+                {/* Info Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[#F9FBFD] dark:bg-slate-950 border border-[#E4EAF2] dark:border-slate-800 rounded p-2.5 text-[11px] space-y-1">
+                    <h4 className="font-bold text-[#0F4C81]">Client Details</h4>
+                    <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/50 py-0.5">
+                      <span className="text-slate-500">Customer</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">John Doe</span>
+                    </div>
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-slate-500">Unit No.</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">Tower A - 102</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#F9FBFD] dark:bg-slate-950 border border-[#E4EAF2] dark:border-slate-800 rounded p-2.5 text-[11px] space-y-1">
+                    <h4 className="font-bold text-[#0F4C81]">Property Details</h4>
+                    <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/50 py-0.5">
+                      <span className="text-slate-500">Carpet Area</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">1,500 Sq.ft</span>
+                    </div>
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-slate-500">Rate</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">5,000.00 / Sq.ft</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cost Breakdown Table */}
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 text-xs">Cost Breakdown</h4>
+                  <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden text-[11px]">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-[#0F4C81] text-white border-b border-slate-200 dark:border-slate-800">
+                          <th className="p-1.5 text-left w-10">#</th>
+                          <th className="p-1.5 text-left">Particular</th>
+                          <th className="p-1.5 text-right">Amount (INR)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.items
+                          .filter(it => it.id !== "basic_price" && it.id !== "grand_total")
+                          .map((it, idx) => (
+                            <tr key={it.id || idx} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-850">
+                              <td className="p-1.5 text-slate-500">{idx + 1}</td>
+                              <td className="p-1.5 font-medium text-slate-800 dark:text-slate-200">{it.label || "Particular Label"}</td>
+                              <td className="p-1.5 text-right font-semibold text-slate-800 dark:text-slate-200">
+                                {Number(it.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        {preview.items.filter(it => it.id !== "basic_price" && it.id !== "grand_total").length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="p-4 text-center text-slate-400 dark:text-slate-600 italic">
+                              No additional particulars configured.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Grand Total Box */}
+                <div className="bg-[#0F4C81] text-white p-3.5 rounded flex justify-between items-center text-xs font-bold shadow-sm">
+                  <span>Grand Total (INR)</span>
+                  <span className="text-base">
+                    {Number(preview.grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Terms and Conditions */}
+                {termsAndConditions && termsAndConditions !== "<p><br></p>" && (
+                  <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <h5 className="font-bold text-[#0F4C81] text-[11px]">Terms & Conditions</h5>
+                    <div 
+                      className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed max-h-[120px] overflow-y-auto pr-1"
+                      dangerouslySetInnerHTML={{ __html: termsAndConditions }}
+                    />
+                  </div>
+                )}
+
+                {/* Footer Note */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[9px] text-slate-400 text-center">
+                  Note: This is a computer generated document, no signature required.
                 </div>
               </div>
             </CardContent>
@@ -935,16 +1045,33 @@ const ProjectQuotations = () => {
                                     </div>
                                   </div>
 
-                                  <div className="flex gap-2 justify-end mt-4">
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => generate(false)}
-                                    >
-                                      Save Draft
-                                    </Button>
-                                    <Button onClick={() => generate(true)}>
-                                      Generate & Download PDF
-                                    </Button>
+                                  <div className="flex items-center gap-4 py-2 border-t mt-4 justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Label htmlFor="sig-select" className="text-xs font-semibold text-slate-500">Signature Type:</Label>
+                                      <Select
+                                        value={signatureType}
+                                        onValueChange={(v: "digital" | "physical") => setSignatureType(v)}
+                                      >
+                                        <SelectTrigger id="sig-select" className="w-[180px] h-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="digital">Digital Print</SelectItem>
+                                          <SelectItem value="physical">With Signature</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => generate(false)}
+                                      >
+                                        Save Draft
+                                      </Button>
+                                      <Button onClick={() => generate(true)}>
+                                        Generate & Download PDF
+                                      </Button>
+                                    </div>
                                   </div>
                                 </DialogContent>
                               </Dialog>

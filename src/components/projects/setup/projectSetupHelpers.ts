@@ -12,6 +12,7 @@ export interface ProjectSetupFields {
   project_type?: ProjectType | string;
   project_structure?: string;
   unit_count?: number;
+  project_logo_url?: string | null;
 }
 
 export type ProjectSetupStep =

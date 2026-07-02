@@ -12,6 +12,7 @@ import crypto from "crypto"; // For Meta webhook signature validation
 import axios from "axios"; // For Graph API and Conversions API calls
 import path from "path";
 import { PROJECT_MEDIA_DIR } from "./utils/projectUploadPaths.js";
+import { ensureUploadDir } from "./utils/uploadPaths.js";
 import reportsRoutes from "./routes/reports.js";
 import chatRoutes from "./routes/chat.routes.js";
 import http from "http";
@@ -20,6 +21,12 @@ import { sync99AcresToDB } from "./config/99acres.service.js";
 import { syncHousingToDB } from "./config/housing.service.js";
 import { syncShyamGroupsToDB } from "./config/shyamgroups.service.js";
 import followupsRoutes from "./routes/followups.js";
+import onboardingRoutes from "./routes/onboarding.js";
+import brandRoutes from "./routes/brands.js";
+import { ensureUnitTypesAreaColumns } from "./utils/unitTypesSchema.js";
+import { ensureProjectsAreaColumns } from "./utils/projectsAreaSchema.js";
+import { ensureOnboardingSchema } from "./utils/ensureOnboardingSchema.js";
+import { ensureQuotationSchema } from "./utils/ensureQuotationSchema.js";
 
 // Import routes
 import authRoutes from "./auth.js";
@@ -75,9 +82,7 @@ app.use(
 );
 
 // Serve static files from api/uploads using an absolute path
-const uploadsPath = process.env.UPLOADS_PATH
-  ? join(process.env.UPLOADS_PATH)
-  : join(__dirname, "Uploads");
+const uploadsPath = ensureUploadDir();
 
 app.use("/api/uploads", express.static(uploadsPath));
 
@@ -109,6 +114,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/companies", companyRoutes);
+app.use("/api/onboarding", onboardingRoutes);
+app.use("/api/brands", brandRoutes);
 app.use("/api/leadtype", leadTypeRoutes);
 app.use("/api/roles-permissions", rolesPermissionsRoutes);
 app.use("/api/user-project-lead", userProjectLeadRoutes);
@@ -210,11 +217,24 @@ async function sendConversionToMeta(leadData, eventType = "Lead") {
 }
 
 // FIXED: Only httpServer.listen (removed duplicate app.listen at end)
-httpServer.listen(port, () => {
+httpServer.listen(port, "0.0.0.0", () => {
   console.log(`Server running on port ${port} with Chat Enabled 🚀`);
   console.log(`Health check: http://localhost:${port}/health`);
   console.log(`Database test: http://localhost:${port}/test-db`);
+  console.log(`LAN access:   http://192.168.0.90:${port}`);
   console.log(`Meta Webhook: http://localhost:${port}/api/webhook/meta-leads`);
+
+  void (async () => {
+    try {
+      await ensureOnboardingSchema();
+      await ensureUnitTypesAreaColumns();
+      await ensureProjectsAreaColumns();
+      await ensureQuotationSchema();
+      console.log("Schema bootstrap complete (onboarding, area units, quotations)");
+    } catch (error) {
+      console.warn("Schema bootstrap skipped:", error.message);
+    }
+  })();
 
   // For Production and Testing the upcoming functions for leads 
   // OPTIONAL: Test sync on startup (uncomment for one-time test, then comment out)

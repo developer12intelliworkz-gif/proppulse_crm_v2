@@ -21,6 +21,7 @@ type ProjectQuotationStatus = {
   project_structure: string | null;
   unit_count: number | string;
   has_active_template: boolean;
+  project_logo_url?: string | null;
 };
 
 // Colored top strip + icon per project_type
@@ -37,6 +38,7 @@ function projectTypeStyle(type: string | null): { color: string; iconBg: string;
 
 const Quotations = () => {
   const [projects, setProjects] = useState<ProjectQuotationStatus[]>([]);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -191,8 +193,17 @@ const Quotations = () => {
                   <div style={{ height: 4, background: color }} />
                   <div style={{ padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 9, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icon size={18} color={color} />
+                      <div style={{ width: 36, height: 36, borderRadius: 9, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                        {(project.project_logo_url && !failedLogos[project.id]) ? (
+                          <img
+                            src={project.project_logo_url}
+                            alt={project.name}
+                            onError={() => setFailedLogos(prev => ({ ...prev, [project.id]: true }))}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <Icon size={18} color={color} />
+                        )}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

@@ -61,6 +61,7 @@ const ProjectSetup = () => {
   const [setupRoute, setSetupRoute] = useState<ProjectSetupRoute | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -401,9 +402,16 @@ const ProjectSetup = () => {
                       onClick={() => !isOpening && selectProject(p.id)}
                     >
                       <CardContent className="p-5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center border border-slate-100 dark:border-slate-800 flex-shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center border border-slate-100 dark:border-slate-800 flex-shrink-0 overflow-hidden">
                           {isOpening ? (
                             <Loader2 className="h-5 w-5 animate-spin text-[var(--theme-color)]" />
+                          ) : (p.project_logo_url && !failedLogos[p.id]) ? (
+                            <img
+                              src={p.project_logo_url}
+                              alt={p.name}
+                              onError={() => setFailedLogos(prev => ({ ...prev, [p.id]: true }))}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
                           ) : (
                             <Building2 className="h-6 w-6 text-[var(--theme-color)]" />
                           )}

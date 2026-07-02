@@ -10,14 +10,21 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       // ✅ Proxy /api requests to Express backend
       "/api": {
-        // for production
-        // target: "https://crm.intelliworkz.digital:8443",
-        target: "https://intelliworkz.digital:4443",
+        // Production server
+        // target: "https://intelliworkz.digital:4443",
+        // changeOrigin: true,
+        // secure: true,
 
-        // for development
-        // target: "http://localhost:3001",
+        // Local development (LAN access)
+        target: "http://localhost:3001",
         changeOrigin: true,
-        secure: true,
+        secure: false,
+      },
+      "/socket.io": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
       },
     },
   },

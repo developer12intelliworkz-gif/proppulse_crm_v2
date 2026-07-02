@@ -4,7 +4,8 @@ import autoTable from "jspdf-autotable";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+import { Resvg } from "@resvg/resvg-js";
 import {
   getProjectUnitsSchema,
   sqlUnitAlias,
@@ -20,6 +21,7 @@ import {
   normalizeCalculationType,
   computeParticularAmount,
 } from "../utils/quotationCalculations.js";
+import { PROJECT_MEDIA_DIR } from "../utils/projectUploadPaths.js";
 
 const ALLOWED_APPLIES_TO = new Set(["unit", "terrace", "both"]);
 const ALLOWED_QUOTATION_STATUS = new Set([
@@ -41,6 +43,28 @@ function asNumberOrNull(value) {
 
 function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+function convertHtmlToPlaintext(html) {
+  if (!html) return "";
+  let text = String(html);
+  // Replace <br> and <br /> with newlines
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  // Replace </p>, </div>, </li> with newlines
+  text = text.replace(/<\/p>/gi, "\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  text = text.replace(/<\/li>/gi, "\n");
+  // Replace <li> with "• "
+  text = text.replace(/<li>/gi, "• ");
+  // Strip all other HTML tags
+  text = text.replace(/<[^>]+>/g, "");
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, " ");
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&quot;/g, '"');
+  return text.trim();
 }
 
 function formatMoneyINR(value) {
@@ -111,7 +135,7 @@ function getLetterheadPdfPath() {
 
 async function getTemplateById(templateId) {
   const tpl = await pool.query(
-    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, created_at, updated_at
+    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
      FROM quotation_templates
      WHERE id = $1
      LIMIT 1`,
@@ -132,7 +156,7 @@ async function getTemplateById(templateId) {
 
 async function listTemplatesByProject(projectId) {
   const res = await pool.query(
-    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, created_at, updated_at
+    `SELECT id, project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
      FROM quotation_templates
      WHERE project_id = $1
      ORDER BY is_active DESC, created_at DESC`,
@@ -175,6 +199,7 @@ export const getProjectsWithQuotationStatus = async (req, res) => {
          p.name,
          p.project_type,
          p.project_structure,
+         p.project_logo,
          (
            SELECT COUNT(1)
            FROM project_units u
@@ -190,7 +215,15 @@ export const getProjectsWithQuotationStatus = async (req, res) => {
        ORDER BY p.created_at DESC`,
     );
 
-    res.json({ data: result.rows });
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const data = result.rows.map((row) => ({
+      ...row,
+      project_logo_url: row.project_logo
+        ? `${baseUrl}/project_vr_app_document/${encodeURIComponent(row.project_logo)}`
+        : null,
+    }));
+
+    res.json({ data });
   } catch (error) {
     console.error("getProjectsWithQuotationStatus error:", error);
     res.status(500).json({ error: "Failed to fetch projects" });
@@ -198,7 +231,7 @@ export const getProjectsWithQuotationStatus = async (req, res) => {
 };
 
 export const upsertQuotationTemplate = async (req, res) => {
-  const { project_id, template_name, is_active, has_terrace_units, particulars } = req.body;
+  const { project_id, template_name, is_active, has_terrace_units, particulars, terms_and_conditions } = req.body;
 
   if (!project_id) {
     return res.status(400).json({ error: "project_id is required" });
@@ -283,8 +316,8 @@ export const upsertQuotationTemplate = async (req, res) => {
 
     const tpl = await client.query(
       `INSERT INTO quotation_templates (
-         project_id, template_name, version, is_active, has_terrace_units, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         project_id, template_name, version, is_active, has_terrace_units, terms_and_conditions, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
        RETURNING *`,
       [
         project_id,
@@ -292,6 +325,7 @@ export const upsertQuotationTemplate = async (req, res) => {
         nextVersion,
         willBeActive,
         !!has_terrace_units,
+        terms_and_conditions || null,
       ],
     );
 
@@ -393,8 +427,9 @@ export const getUnitsByProjectForQuotations = async (req, res) => {
        FROM project_units u
        ${hierarchy.join}
        ${leadJoin}
-       WHERE u.project_id = $1
-       ${deletedFilter}
+        WHERE u.project_id = $1
+        AND (u.${schema.statusCol || 'status'} IS NULL OR LOWER(CAST(u.${schema.statusCol || 'status'} AS TEXT)) != 'sold')
+        ${deletedFilter}
        ORDER BY ${schema.unitNumberCol ? `u.${schema.unitNumberCol}` : "u.id"} ASC`,
       [projectId],
     );
@@ -581,13 +616,13 @@ export const generateQuotation = async (req, res) => {
          quotation_number, client_name, quotation_date,
          base_price, carpet_area, super_builtup_area,
          total_amount, particulars_snapshot, status, notes,
-         created_at, updated_at
+         terms_and_conditions, created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4,
          $5, $6, COALESCE($7::date, CURRENT_DATE),
          $8, $9, $10,
          $11, $12::jsonb, $13, $14,
-         NOW(), NOW()
+         $15, NOW(), NOW()
        )
        RETURNING *`,
       [
@@ -605,6 +640,7 @@ export const generateQuotation = async (req, res) => {
         JSON.stringify(snapshot),
         requestedStatus,
         notes || null,
+        tpl.terms_and_conditions || null,
       ],
     );
 
@@ -678,9 +714,16 @@ export const getQuotationsByProject = async (req, res) => {
 
 export const generateQuotationPdf = async (req, res) => {
   const { id } = req.params;
+  const { signature_type } = req.body || {};
+  const signatureType = signature_type || "digital";
+
   try {
     const result = await pool.query(
-      `SELECT q.*, p.name AS project_name, u.unit_number
+      `SELECT q.*, 
+              p.name AS project_name, p.address AS project_address, p.street AS project_street,
+              p.city AS project_city, p.state AS project_state, p.country AS project_country,
+              p.zip AS project_zip, p.rera_project_id, p.project_logo,
+              u.unit_number
        FROM quotations q
        JOIN projects p ON p.id = q.project_id
        JOIN project_units u ON u.id = q.unit_id
@@ -692,6 +735,45 @@ export const generateQuotationPdf = async (req, res) => {
     const quotation = result.rows[0];
     const snapshot = quotation.particulars_snapshot || {};
     const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+
+    // Fetch first company profile (name, website, address, contacts)
+    const companyRes = await pool.query(`SELECT * FROM companies LIMIT 1`);
+    const company = companyRes.rows[0] || {};
+    
+    let companyAddress = null;
+    let companyContact = null;
+    
+    if (company.id) {
+      const addrRes = await pool.query(`SELECT * FROM company_addresses WHERE company_id = $1 LIMIT 1`, [company.id]);
+      companyAddress = addrRes.rows[0];
+      
+      const contRes = await pool.query(`SELECT * FROM company_contacts WHERE company_id = $1 ORDER BY is_primary DESC, created_at ASC LIMIT 1`, [company.id]);
+      companyContact = contRes.rows[0];
+    }
+
+    // Build project address strings
+    const addressParts = [];
+    if (quotation.project_address) addressParts.push(quotation.project_address);
+    if (quotation.project_street) addressParts.push(quotation.project_street);
+    if (quotation.project_city) addressParts.push(quotation.project_city);
+    if (quotation.project_state) addressParts.push(quotation.project_state);
+    if (quotation.project_country) addressParts.push(quotation.project_country);
+    if (quotation.project_zip) addressParts.push(quotation.project_zip);
+
+    // Fallback to company address if project has none
+    if (addressParts.length === 0 && companyAddress) {
+      if (companyAddress.address_line1) addressParts.push(companyAddress.address_line1);
+      if (companyAddress.address_line2) addressParts.push(companyAddress.address_line2);
+      if (companyAddress.city) addressParts.push(companyAddress.city);
+      if (companyAddress.state) addressParts.push(companyAddress.state);
+      if (companyAddress.country) addressParts.push(companyAddress.country);
+      if (companyAddress.zip) addressParts.push(companyAddress.zip);
+    }
+    const formattedAddress = addressParts.join(", ");
+
+    const contactPhone = companyContact?.phone || "";
+    const contactEmail = companyContact?.email || "";
+    const companyWebsite = company?.website_url || "";
 
     const letterheadPath = getLetterheadPdfPath();
     let outDoc;
@@ -714,151 +796,588 @@ export const generateQuotationPdf = async (req, res) => {
     const fontRegular = await outDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await outDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const marginX = 60;
-    const topStart = fs.existsSync(letterheadPath) ? 150 : 72;
+    const marginX = 35;
+    const topStart = 35;
     const lineGap = 14;
     const tableWidth = pageWidth - marginX * 2;
 
     const yFromTop = (yTop) => pageHeight - yTop;
 
-    const drawText = (text, x, yTop, size = 10, bold = false) => {
+    const drawText = (text, x, yTop, size = 10, bold = false, colorVal = rgb(0, 0, 0)) => {
       page.drawText(String(text || ""), {
         x,
         y: yFromTop(yTop),
         size,
         font: bold ? fontBold : fontRegular,
-        color: rgb(0, 0, 0),
+        color: colorVal,
       });
     };
 
-    const drawLabelValue = (label, value, x, yTop, bold = false) => {
-      drawText(`${label}: ${value}`, x, yTop, 10, bold);
+    const drawLabelValue = (label, value, x, yTop, bold = false, colorVal = rgb(0, 0, 0)) => {
+      drawText(`${label}: ${value}`, x, yTop, 10, bold, colorVal);
     };
 
-    // Meta (top-right)
-    drawLabelValue(
-      "Quotation No.",
-      quotation.quotation_number || "-",
-      pageWidth - marginX - 240,
-      topStart,
-    );
-    drawLabelValue(
-      "Date",
-      formatDateYYYYMMDD(quotation.quotation_date),
-      pageWidth - marginX - 240,
-      topStart + lineGap,
-    );
+    // Draw Watermark (Project Logo or Text Fallback)
+    let hasWatermark = false;
+    if (quotation.project_logo) {
+      const logoPath = path.join(PROJECT_MEDIA_DIR, quotation.project_logo);
+      if (fs.existsSync(logoPath)) {
+        try {
+          let watermarkImage;
+          const fileBytes = fs.readFileSync(logoPath);
+          if (logoPath.toLowerCase().endsWith(".png")) {
+            watermarkImage = await outDoc.embedPng(fileBytes);
+          } else if (logoPath.toLowerCase().endsWith(".jpg") || logoPath.toLowerCase().endsWith(".jpeg")) {
+            watermarkImage = await outDoc.embedJpg(fileBytes);
+          } else if (logoPath.toLowerCase().endsWith(".svg")) {
+            const resvg = new Resvg(fileBytes, { fitTo: { mode: "width", value: 300 } });
+            const pngBuffer = resvg.render().asPng();
+            watermarkImage = await outDoc.embedPng(pngBuffer);
+          }
+          
+          if (watermarkImage) {
+            hasWatermark = true;
+            const { width: imgW, height: imgH } = watermarkImage.scale(1.0);
+            const maxW = 60;
+            const maxH = 60;
+            const scale = Math.min(maxW / imgW, maxH / imgH, 1.0);
+            const w = imgW * scale;
+            const h = imgH * scale;
+            
+            // Draw a staggered tiled grid of watermarks across the page
+            const cols = 5;
+            const rows = 7;
+            const colSpacing = pageWidth / cols;
+            const rowSpacing = pageHeight / rows;
 
-    let y = topStart + 14;
-    const leftX = marginX;
+            for (let r = 0; r < rows; r++) {
+              for (let c = 0; c < cols; c++) {
+                // Offset alternate rows for staggered grid pattern
+                const shiftX = (r % 2 === 0) ? 0 : colSpacing / 2;
+                const targetX = c * colSpacing + shiftX - w / 2;
+                const targetY = r * rowSpacing + rowSpacing / 2 - h / 2;
 
-    drawText("Client Details", leftX, y, 11, true);
-    y += 18;
-    drawLabelValue("Name", quotation.client_name || "-", leftX, y);
-    y += lineGap;
-    drawLabelValue("Project", quotation.project_name || "-", leftX, y);
-    y += lineGap;
-    drawLabelValue("Unit", quotation.unit_number || "-", leftX, y);
+                // Draw if within horizontal/vertical safety padding
+                if (targetX > 10 && targetX < pageWidth - w - 10 &&
+                    targetY > 60 && targetY < pageHeight - h - 40) {
+                  page.drawImage(watermarkImage, {
+                    x: targetX,
+                    y: targetY,
+                    width: w,
+                    height: h,
+                    opacity: 0.08,
+                    rotate: degrees(35),
+                  });
+                }
+              }
+            }
+          }
+        } catch (logoErr) {
+          console.warn("Could not embed project logo watermark:", logoErr.message);
+        }
+      }
+    }
 
-    y += 26;
-    drawText("Unit & Pricing Summary", leftX, y, 11, true);
-    y += 18;
-    const totalArea = snapshot?.unit?.total_area ?? "-";
-    const rate = snapshot?.unit?.price_per_unit ?? 0;
-    const basicPrice = snapshot?.unit?.basic_price ?? quotation.base_price ?? 0;
-    drawLabelValue("Carpet Area", quotation.carpet_area ?? "-", leftX, y);
-    y += lineGap;
-    drawLabelValue("Super Built-up Area", quotation.super_builtup_area ?? "-", leftX, y);
-    y += lineGap;
-    drawLabelValue("Total Area (Super Built-up or Carpet)", totalArea, leftX, y);
-    y += lineGap;
-    drawLabelValue("Rate (per unit)", `INR ${formatMoneyINR(rate)}`, leftX, y);
-    y += lineGap;
-    drawLabelValue(
-      "Total Basic Price",
-      `INR ${formatMoneyINR(basicPrice)}`,
-      leftX,
-      y,
-      true,
-    );
+    if (!hasWatermark) {
+      const fallbackText = String(quotation.project_name || company.name || "shyam Group");
+      const htmlRows = [20, 160, 300, 440, 580, 720, 860, 1000, 1140];
+      const htmlCols = [-40, 110, 260, 410, 560, 710];
+      const scaleX = pageWidth / 794;
+      const scaleY = pageHeight / 1123;
+      const watermarkColor = rgb(0.77, 0.61, 0.29); // #c49b4a
 
-    // Requested heading above table
+      for (const ry of htmlRows) {
+        for (const cx of htmlCols) {
+          const targetX = cx * scaleX;
+          const targetY = ry * scaleY;
+
+          if (targetY > 40 && targetY < pageHeight - 50) {
+            page.drawText(fallbackText, {
+              x: targetX,
+              y: yFromTop(targetY),
+              size: 8.5,
+              font: fontRegular,
+              color: watermarkColor,
+              rotate: degrees(35),
+              opacity: 0.16,
+            });
+          }
+        }
+      }
+    }
+
+    // Embed Project Logo for header
+    let logoImage = null;
+    let logoW = 0;
+    let logoH = 36;
+
+    if (quotation.project_logo) {
+      const logoPath = path.join(PROJECT_MEDIA_DIR, quotation.project_logo);
+      if (fs.existsSync(logoPath)) {
+        try {
+          const fileBytes = fs.readFileSync(logoPath);
+          if (logoPath.toLowerCase().endsWith(".png")) {
+            logoImage = await outDoc.embedPng(fileBytes);
+          } else if (logoPath.toLowerCase().endsWith(".jpg") || logoPath.toLowerCase().endsWith(".jpeg")) {
+            logoImage = await outDoc.embedJpg(fileBytes);
+          } else if (logoPath.toLowerCase().endsWith(".svg")) {
+            const resvg = new Resvg(fileBytes, { fitTo: { mode: "width", value: 300 } });
+            const pngBuffer = resvg.render().asPng();
+            logoImage = await outDoc.embedPng(pngBuffer);
+          }
+          if (logoImage) {
+            const { width: imgW, height: imgH } = logoImage.scale(1.0);
+            const maxW = 160;
+            const maxH = 65;
+            const scale = Math.min(maxW / imgW, maxH / imgH, 1.0);
+            logoW = imgW * scale;
+            logoH = imgH * scale;
+          }
+        } catch (logoErr) {
+          console.warn("Could not embed logo image:", logoErr.message);
+        }
+      }
+    }
+
+    // Colors matching user Poppins mockup
+    const headerBlue = rgb(0.11, 0.16, 0.24); // #1c2a3d Dark slate blue
+    const goldColor = rgb(0.79, 0.60, 0.18);  // #c9992f Gold
+    const goldLight = rgb(0.90, 0.78, 0.47);  // #e6c778 Light Gold
+    const accentGold = rgb(0.66, 0.46, 0.16); // #a9762a Accent Gold
+    const borderGrey = rgb(0.93, 0.91, 0.85); // #ece7d9 Card Border
+    const bgLight = rgb(1, 1, 1);             // Plain white background
+    const textGrey = rgb(0.42, 0.45, 0.50);   // #6b7280
+    const textBlack = rgb(0.13, 0.14, 0.17);  // #20242b
+
+    // Draw Brand Logo (left)
+    if (logoImage) {
+      page.drawImage(logoImage, {
+        x: marginX,
+        y: yFromTop(topStart + logoH),
+        width: logoW,
+        height: logoH,
+      });
+    } else {
+      // Fallback: draw circular brand mark and text
+      page.drawCircle({
+        x: marginX + 23,
+        y: yFromTop(topStart + 23),
+        size: 23,
+        color: goldColor,
+      });
+      // S in circle
+      page.drawText("S", {
+        x: marginX + 16,
+        y: yFromTop(topStart + 31),
+        size: 22,
+        font: fontBold,
+        color: rgb(1, 1, 1),
+      });
+      // shyam Group text
+      page.drawText("shyam", {
+        x: marginX + 56,
+        y: yFromTop(topStart + 22),
+        size: 27,
+        font: fontBold,
+        color: rgb(0.75, 0.54, 0.18),
+      });
+      page.drawText("GROUP", {
+        x: marginX + 58,
+        y: yFromTop(topStart + 38),
+        size: 9,
+        font: fontRegular,
+        color: textGrey,
+      });
+    }
+
+    // Quotation right side details
+    const rightX = pageWidth - marginX - 180;
+    page.drawText("QUOTATION", {
+      x: pageWidth - marginX - fontBold.widthOfTextAtSize("QUOTATION", 24),
+      y: yFromTop(topStart + 22),
+      size: 24,
+      font: fontBold,
+      color: headerBlue,
+    });
+    
+    // Draw No and Date detail strings
+    const noPrefix = "No: ";
+    const noVal = quotation.quotation_number || "-";
+    const datePrefix = "  •  Date: ";
+    const dateVal = formatDateYYYYMMDD(quotation.quotation_date);
+    
+    const wPrefix1 = fontRegular.widthOfTextAtSize(noPrefix, 9.5);
+    const wVal1 = fontBold.widthOfTextAtSize(noVal, 9.5);
+    const wPrefix2 = fontRegular.widthOfTextAtSize(datePrefix, 9.5);
+    const wVal2 = fontBold.widthOfTextAtSize(dateVal, 9.5);
+    const totalMetaW = wPrefix1 + wVal1 + wPrefix2 + wVal2;
+    
+    let curMetaX = pageWidth - marginX - totalMetaW;
+    page.drawText(noPrefix, { x: curMetaX, y: yFromTop(topStart + 38), size: 9.5, font: fontRegular, color: textGrey });
+    curMetaX += wPrefix1;
+    page.drawText(noVal, { x: curMetaX, y: yFromTop(topStart + 38), size: 9.5, font: fontBold, color: textBlack });
+    curMetaX += wVal1;
+    page.drawText(datePrefix, { x: curMetaX, y: yFromTop(topStart + 38), size: 9.5, font: fontRegular, color: textGrey });
+    curMetaX += wPrefix2;
+    page.drawText(dateVal, { x: curMetaX, y: yFromTop(topStart + 38), size: 9.5, font: fontBold, color: textBlack });
+
+    // Gold Divider line (placed 45pt below bottom of logo to clear any padding)
+    const dividerY = topStart + logoH + 45;
+    page.drawLine({
+      start: { x: marginX, y: yFromTop(dividerY) },
+      end: { x: pageWidth - marginX, y: yFromTop(dividerY) },
+      color: goldColor,
+      thickness: 3,
+    });
+
+    // Project Strip (spaced out to avoid stickiness)
+    const subHeaderY = dividerY + 22;
+    drawText(quotation.project_name || company.name || "Shyam 242", marginX, subHeaderY, 16, true, headerBlue);
+    drawText("Premium Residential Projects, Ahmedabad, Gujarat", marginX, subHeaderY + 16, 11, false, textGrey);
+
+    const rightTextStr = "Prepared by Authorized Sales Team";
+    const rightTextX = pageWidth - marginX - fontRegular.widthOfTextAtSize(rightTextStr, 11);
+    drawText(rightTextStr, rightTextX, subHeaderY + 8, 11, false, textGrey);
+
+    // Border line below Project Strip
+    page.drawLine({
+      start: { x: marginX, y: yFromTop(dividerY + 54) },
+      end: { x: pageWidth - marginX, y: yFromTop(dividerY + 54) },
+      color: borderGrey,
+      thickness: 1,
+    });
+
+    let y = dividerY + 66;
+    const cardW = 244;
+    const cardH = 65;
+
+    const carpetArea = Number(quotation.carpet_area);
+    const superArea = Number(quotation.super_builtup_area);
+    const rateVal = snapshot?.unit?.price_per_unit ?? 0;
+
+    // Draw Card 1: Client Details
+    page.drawRectangle({
+      x: marginX,
+      y: yFromTop(y + cardH),
+      width: cardW,
+      height: cardH,
+      color: bgLight,
+      borderColor: borderGrey,
+      borderWidth: 1,
+    });
+    // Accent rule bar on left side of card
+    page.drawRectangle({
+      x: marginX,
+      y: yFromTop(y + cardH - 12),
+      width: 3,
+      height: cardH - 24,
+      color: goldColor,
+    });
+    drawText("CLIENT DETAILS", marginX + 15, y + 14, 8.5, true, accentGold);
+    
+    // Customer row
+    drawText("Customer Name", marginX + 15, y + 32, 10, false, textGrey);
+    const custVal = quotation.client_name || "-";
+    const custValW = fontBold.widthOfTextAtSize(custVal, 10);
+    drawText(custVal, marginX + cardW - 15 - custValW, y + 32, 10, true, headerBlue);
+
+    // Unit No. row
+    drawText("Unit No.", marginX + 15, y + 48, 10, false, textGrey);
+    const unitVal = quotation.unit_number || "-";
+    const unitValW = fontBold.widthOfTextAtSize(unitVal, 10);
+    drawText(unitVal, marginX + cardW - 15 - unitValW, y + 48, 10, true, headerBlue);
+
+
+    // Draw Card 2: Property Details
+    const card2X = pageWidth - marginX - cardW;
+    page.drawRectangle({
+      x: card2X,
+      y: yFromTop(y + cardH),
+      width: cardW,
+      height: cardH,
+      color: bgLight,
+      borderColor: borderGrey,
+      borderWidth: 1,
+    });
+    // Accent rule bar on left side of card
+    page.drawRectangle({
+      x: card2X,
+      y: yFromTop(y + cardH - 12),
+      width: 3,
+      height: cardH - 24,
+      color: goldColor,
+    });
+    drawText("PROPERTY DETAILS", card2X + 15, y + 14, 8.5, true, accentGold);
+
+    // Carpet Area row
+    drawText("Carpet Area", card2X + 15, y + 32, 10, false, textGrey);
+    const areaValStr = carpetArea > 0 ? `${carpetArea} Sq.ft` : (superArea > 0 ? `${superArea} Sq.ft` : "-");
+    const areaValW = fontBold.widthOfTextAtSize(areaValStr, 10);
+    drawText(areaValStr, card2X + cardW - 15 - areaValW, y + 32, 10, true, headerBlue);
+
+    // Rate row
+    drawText("Rate", card2X + 15, y + 48, 10, false, textGrey);
+    const rateValStr = `${formatMoneyINR(rateVal)} / Sq.ft`;
+    const rateValW = fontBold.widthOfTextAtSize(rateValStr, 10);
+    drawText(rateValStr, card2X + cardW - 15 - rateValW, y + 48, 10, true, headerBlue);
+
+    y += cardH + 18;
+
+    // Investment Breakup Section Heading
+    page.drawText("Investment Breakup", {
+      x: marginX,
+      y: yFromTop(y + 13.5),
+      size: 12,
+      font: fontBold,
+      color: headerBlue,
+    });
+
+    // Horizontal line extending from heading
+    const textW = fontBold.widthOfTextAtSize("Investment Breakup", 12);
+    page.drawLine({
+      start: { x: marginX + textW + 12, y: yFromTop(y + 10) },
+      end: { x: pageWidth - marginX, y: yFromTop(y + 10) },
+      color: borderGrey,
+      thickness: 1,
+    });
+
     y += 30;
-    drawText("Cost Breakdown", leftX, y, 11, true);
-    y += 14;
 
-    // Table header + rows (simple single-page table)
-    const colSl = 45;
-    const colAmt = 150;
+    // Table settings
+    const colSl = 34;
+    const colAmt = 120;
     const colDesc = tableWidth - colSl - colAmt;
-    const headerH = 18;
-    const rowH = 18;
+    const headerH = 22;
+    const rowH = 24;
 
-    const drawRect = (x, yTop, w, h, fill = null) => {
-      page.drawRectangle({
-        x,
-        y: yFromTop(yTop) - h,
-        width: w,
-        height: h,
-        color: fill || undefined,
-        borderColor: rgb(0.86, 0.86, 0.86),
-        borderWidth: 1,
-      });
-    };
-
-    const drawCell = (text, x, yTop, w, alignRight = false, bold = false) => {
-      const padding = 6;
+    const drawHeaderCell = (text, x, yTop, w, alignRight = false) => {
       const s = String(text ?? "");
-      const clipped = s.length > 70 ? `${s.slice(0, 69)}…` : s;
       const tx = alignRight
-        ? x + w - padding - clipped.length * 5.2
-        : x + padding;
-      page.drawText(clipped, {
-        x: Math.max(x + padding, tx),
-        y: yFromTop(yTop) - 13,
-        size: 9.5,
-        font: bold ? fontBold : fontRegular,
-        color: rgb(0, 0, 0),
+        ? x + w - fontBold.widthOfTextAtSize(s, 8.5)
+        : x;
+      page.drawText(s, {
+        x: tx,
+        y: yFromTop(yTop + 14),
+        size: 8.5,
+        font: fontBold,
+        color: accentGold,
       });
     };
 
-    drawRect(leftX, y, tableWidth, headerH, rgb(0.96, 0.96, 0.96));
-    drawCell("Sl. No.", leftX, y, colSl, false, true);
-    drawCell("Particular Description", leftX + colSl, y, colDesc, false, true);
-    drawCell("Amount (INR)", leftX + colSl + colDesc, y, colAmt, true, true);
+    drawHeaderCell("#", marginX, y, colSl);
+    drawHeaderCell("Particular", marginX + colSl, y, colDesc);
+    drawHeaderCell("Amount (INR)", marginX + colSl + colDesc, y, colAmt, true);
     y += headerH;
 
-    const rows = items.map((it, idx) => {
+    // Line below header (2px goldColor)
+    page.drawLine({
+      start: { x: marginX, y: yFromTop(y) },
+      end: { x: pageWidth - marginX, y: yFromTop(y) },
+      color: goldColor,
+      thickness: 2,
+    });
+
+    // Filter out redundant Basic Price and Grand Total rows
+    const filteredItems = items.filter(
+      (it) => it.id !== "basic_price" && it.id !== "grand_total" &&
+              it.label !== "Total Basic Price" && it.label !== "Grand Total"
+    );
+
+    const rows = filteredItems.map((it, idx) => {
       const amount = it?.amount ?? it?.total_amount ?? it?.total ?? 0;
+      const paddedSl = String(idx + 1).padStart(2, "0");
       return {
-        sl: idx + 1,
+        sl: paddedSl,
         desc: String(it?.label || "-"),
-        amt: `INR ${formatMoneyINR(Number(amount || 0))}`,
+        amt: `${formatMoneyINR(Number(amount || 0))}`,
       };
     });
 
+    let rowIndex = 0;
     for (const r of rows) {
-      if (y + rowH > pageHeight - 140) break;
-      drawRect(leftX, y, tableWidth, rowH);
-      drawCell(String(r.sl), leftX, y, colSl);
-      drawCell(r.desc, leftX + colSl, y, colDesc);
-      drawCell(r.amt, leftX + colSl + colDesc, y, colAmt, true);
+      if (y + rowH > pageHeight - 160) break;
+      
+      // Even row light beige striping
+      if (rowIndex % 2 === 1) {
+        page.drawRectangle({
+          x: marginX,
+          y: yFromTop(y + rowH),
+          width: tableWidth,
+          height: rowH,
+          color: rgb(0.98, 0.98, 0.96),
+        });
+      }
+
+      // Sl number (gold bold)
+      page.drawText(r.sl, {
+        x: marginX,
+        y: yFromTop(y + 16),
+        size: 9,
+        font: fontBold,
+        color: goldColor,
+      });
+
+      // Particular label (dark blue normal)
+      page.drawText(r.desc, {
+        x: marginX + colSl,
+        y: yFromTop(y + 16),
+        size: 9,
+        font: fontRegular,
+        color: textBlack,
+      });
+
+      // Amount (dark blue bold)
+      const valW = fontBold.widthOfTextAtSize(r.amt, 9);
+      page.drawText(r.amt, {
+        x: pageWidth - marginX - valW,
+        y: yFromTop(y + 16),
+        size: 9,
+        font: fontBold,
+        color: headerBlue,
+      });
+
       y += rowH;
+
+      // Divider line below row
+      page.drawLine({
+        start: { x: marginX, y: yFromTop(y) },
+        end: { x: pageWidth - marginX, y: yFromTop(y) },
+        color: rgb(0.95, 0.93, 0.88),
+        thickness: 0.75,
+      });
+      
+      rowIndex++;
     }
 
     const grandTotal = snapshot?.totals?.grand_total ?? quotation.total_amount ?? 0;
-    y += 18;
-    drawText(`Grand Total: INR ${formatMoneyINR(grandTotal)}`, pageWidth - marginX - 240, y, 11, true);
+    y += 12;
 
-    y += 26;
-    drawText(
-      "Terms: This quotation is valid for 30 days from the date of issue. Taxes and statutory charges are as applicable.",
-      leftX,
-      y,
-      8.5,
-      false,
-    );
-    drawText("Authorized Signatory", pageWidth - marginX - 160, y + 55, 9, false);
+    // Draw Grand Total Box
+    page.drawRectangle({
+      x: marginX,
+      y: yFromTop(y + 45),
+      width: tableWidth,
+      height: 45,
+      color: headerBlue,
+      borderRadius: 6,
+    });
+    
+    // Right accent bar in gold
+    page.drawRectangle({
+      x: pageWidth - marginX - 5,
+      y: yFromTop(y + 45),
+      width: 5,
+      height: 45,
+      color: goldColor,
+    });
+    
+    // Grand Total Left
+    page.drawText("Grand Total (INR)", {
+      x: marginX + 20,
+      y: yFromTop(y + 26),
+      size: 9.5,
+      font: fontBold,
+      color: rgb(0.81, 0.84, 0.88),
+    });
+    
+    // Grand Total Right
+    const totalValStr = `${formatMoneyINR(grandTotal)}`;
+    const totalValStrW = fontBold.widthOfTextAtSize(totalValStr, 18);
+    page.drawText(totalValStr, {
+      x: pageWidth - marginX - 20 - totalValStrW,
+      y: yFromTop(y + 30),
+      size: 18,
+      font: fontBold,
+      color: rgb(0.95, 0.85, 0.59),
+    });
+
+    y += 65;
+
+    // Dynamic Terms and Conditions Section
+    page.drawText("Terms & Conditions", {
+      x: marginX,
+      y: yFromTop(y),
+      size: 9,
+      font: fontBold,
+      color: accentGold,
+    });
+    y += 14;
+
+    const rawTerms = convertHtmlToPlaintext(quotation.terms_and_conditions || "This quotation is valid for 30 days from the date of issue. Taxes and statutory charges are as applicable.");
+    const termsLines = String(rawTerms).split("\n");
+    for (const line of termsLines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      // Basic wrapping
+      const maxCharsPerLine = 95;
+      for (let i = 0; i < trimmed.length; i += maxCharsPerLine) {
+        if (y + 12 > pageHeight - 95) break;
+        const chunk = trimmed.slice(i, i + maxCharsPerLine);
+        drawText(chunk, marginX, y, 8.5, false, textGrey);
+        y += 12;
+      }
+      y += 4;
+    }
+
+    // Signature Area
+    y += 50;
+    if (signatureType === "digital") {
+      drawText("Note: This is a computer generated document, no signature required.", marginX, y, 8.5, false, textGrey);
+    } else {
+      const sigLineW = 160;
+      const sigLineX = pageWidth - marginX - sigLineW;
+      page.drawLine({
+        start: { x: sigLineX, y: yFromTop(y + 25) },
+        end: { x: pageWidth - marginX, y: yFromTop(y + 25) },
+        color: goldColor,
+        thickness: 0.75,
+      });
+      const sigText = "Authorized Signatory";
+      const sigTextW = fontBold.widthOfTextAtSize(sigText, 9);
+      const sigTextX = sigLineX + (sigLineW - sigTextW) / 2;
+      drawText(sigText, sigTextX, y + 36, 9, true, headerBlue);
+    }
+
+    // Footer Details Band (Moved up to avoid cutting off)
+    const footerLineY = pageHeight - 95;
+    page.drawLine({
+      start: { x: marginX, y: yFromTop(footerLineY) },
+      end: { x: pageWidth - marginX, y: yFromTop(footerLineY) },
+      color: borderGrey,
+      thickness: 1.2,
+      opacity: 0.8,
+    });
+
+    const footerText1 = `Project: ${quotation.project_name || "Real Estate"}  |  Address: ${formattedAddress || "N/A"}  |  RERA No: ${quotation.rera_project_id || "N/A"}`;
+    const footerText2 = `Contact Phone: ${contactPhone || "N/A"}  |  Contact Email: ${contactEmail || "N/A"}`;
+
+    page.drawText(footerText1, {
+      x: marginX,
+      y: yFromTop(footerLineY + 15),
+      size: 7.5,
+      font: fontRegular,
+      color: textGrey,
+    });
+
+    page.drawText(footerText2, {
+      x: marginX,
+      y: yFromTop(footerLineY + 26),
+      size: 7.5,
+      font: fontRegular,
+      color: textGrey,
+    });
+
+    // Right brand text
+    const brandText = "SHYAM GROUP";
+    const brandTextW = fontBold.widthOfTextAtSize(brandText, 8.5);
+    page.drawText(brandText, {
+      x: pageWidth - marginX - brandTextW,
+      y: yFromTop(footerLineY + 20),
+      size: 8.5,
+      font: fontBold,
+      color: goldColor,
+    });
 
     const buffer = Buffer.from(await outDoc.save());
 

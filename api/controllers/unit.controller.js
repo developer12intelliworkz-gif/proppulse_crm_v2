@@ -7,6 +7,14 @@ import {
   buildUnitInsertQuery,
   buildUnitUpdateQuery,
 } from "../utils/projectUnitsSchema.js";
+import {
+  AREA_UNIT_CODES,
+  computeTotalPriceFromSqft,
+  isValidAreaUnit,
+  normalizeAreaUnitCode,
+  resolveAreaSqftForPricing,
+  toCanonicalSqft,
+} from "../utils/areaConversion.js";
 
 const ALLOWED_STATUSES = new Set(["available", "booked", "sold", "blocked"]);
 
@@ -21,7 +29,7 @@ const ALLOWED_FACINGS = new Set([
   "south_west",
 ]);
 
-const ALLOWED_AREA_UNITS = new Set(["sqft", "sqyd"]);
+const ALLOWED_AREA_UNITS = new Set(AREA_UNIT_CODES);
 
 const projectExists = async (projectId) => {
   const result = await pool.query(
@@ -287,26 +295,35 @@ const buildUnitPayload = async (projectId, payload, currentUnit = null) => {
     throw new Error("facing must be a valid direction value");
   }
 
-  const normalizedCarpetAreaUnit = String(carpetAreaUnit).trim().toLowerCase();
-  const normalizedSuperAreaUnit = String(superBuiltupAreaUnit)
-    .trim()
-    .toLowerCase();
+  const normalizedCarpetAreaUnit = normalizeAreaUnitCode(carpetAreaUnit);
+  const normalizedSuperAreaUnit = normalizeAreaUnitCode(superBuiltupAreaUnit);
 
-  if (!ALLOWED_AREA_UNITS.has(normalizedCarpetAreaUnit)) {
-    throw new Error("carpet_area_unit must be sqft or sqyd");
+  if (!isValidAreaUnit(normalizedCarpetAreaUnit)) {
+    throw new Error(
+      `carpet_area_unit must be one of: ${[...ALLOWED_AREA_UNITS].join(", ")}`,
+    );
   }
-  if (!ALLOWED_AREA_UNITS.has(normalizedSuperAreaUnit)) {
-    throw new Error("super_builtup_area_unit must be sqft or sqyd");
+  if (!isValidAreaUnit(normalizedSuperAreaUnit)) {
+    throw new Error(
+      `super_builtup_area_unit must be one of: ${[...ALLOWED_AREA_UNITS].join(", ")}`,
+    );
   }
 
-  const parsedCarpetArea = parseRequiredPositiveNumber(
-    carpetArea,
-    "carpet_area_sqft",
-  );
-  const parsedSuperBuiltupArea = parseOptionalNumber(
-    superBuiltupArea,
-    "super_builtup_area_sqft",
-  );
+  const carpetEntry = parseOptionalNumber(carpetArea, "carpet_area");
+  const superEntry = parseOptionalNumber(superBuiltupArea, "super_builtup_area");
+
+  if (carpetEntry === null && superEntry === null) {
+    throw new Error("At least one area value (carpet or super builtup) is required");
+  }
+
+  const parsedCarpetArea =
+    carpetEntry === null
+      ? null
+      : toCanonicalSqft(carpetEntry, normalizedCarpetAreaUnit);
+  const parsedSuperBuiltupArea =
+    superEntry === null
+      ? null
+      : toCanonicalSqft(superEntry, normalizedSuperAreaUnit);
   const parsedBaseRate = parseOptionalNumber(baseRate, "base_rate");
   const parsedPrice = parseOptionalNumber(price, "price");
 
@@ -332,10 +349,14 @@ const buildUnitPayload = async (projectId, payload, currentUnit = null) => {
     parsedParkingCount = count;
   }
 
-  const computedTotalPrice =
-    parsedBaseRate !== null && parsedBaseRate > 0
-      ? (parsedSuperBuiltupArea !== null && parsedSuperBuiltupArea > 0 ? parsedSuperBuiltupArea : parsedCarpetArea) * parsedBaseRate
-      : null;
+  const areaSqftForPrice = resolveAreaSqftForPricing(
+    parsedCarpetArea,
+    parsedSuperBuiltupArea,
+  );
+  const computedTotalPrice = computeTotalPriceFromSqft(
+    areaSqftForPrice,
+    parsedBaseRate,
+  );
   const resolvedPrice = computedTotalPrice ?? parsedPrice;
 
   const numericUnitTypeId =

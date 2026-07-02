@@ -11,6 +11,7 @@
     "import": "node ../migration/import-to-postgresql.js"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "bull": "^4.16.5",

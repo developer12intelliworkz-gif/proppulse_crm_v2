@@ -16,6 +16,9 @@ axiosInstance.interceptors.request.use((config) => {
   } else {
     console.warn("⚠️ No auth token found in localStorage");
   }
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 

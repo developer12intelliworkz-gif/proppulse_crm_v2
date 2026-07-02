@@ -5,6 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 type QuotationRecord = {
   id: string;
@@ -44,9 +51,13 @@ const QuotationView = () => {
     if (id) load();
   }, [id, toast]);
 
-  const downloadPdf = async () => {
+  const downloadPdf = async (sigType: "digital" | "physical" = "digital") => {
     try {
-      const res = await axiosInstance.post(`/quotations/${id}/pdf`, {}, { responseType: "blob" });
+      const res = await axiosInstance.post(
+        `/quotations/${id}/pdf`,
+        { signature_type: sigType },
+        { responseType: "blob" }
+      );
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -84,7 +95,21 @@ const QuotationView = () => {
           <Button variant="outline" onClick={() => navigate(`/quotations/${projectId}`)}>
             Back
           </Button>
-          <Button onClick={downloadPdf}>Download PDF</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                Download PDF <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadPdf("digital")}>
+                Digital Print (No Sign)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadPdf("physical")}>
+                With Signature
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

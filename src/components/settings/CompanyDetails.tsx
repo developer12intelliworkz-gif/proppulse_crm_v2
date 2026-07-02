@@ -902,12 +902,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Home } from "lucide-react";
 import axiosInstance from "@/api/axiosInstance";
-import { SECURITY_CONFIG } from "@/config/security";
-import defaultLogo from "./logo.png"; // ← Tera local fallback logo
-
-// Image base URL (without /api)
-const IMAGE_BASE_URL =
-  (SECURITY_CONFIG.ONLY_URL || SECURITY_CONFIG.BASE)?.replace("/api", "") || "";
+import { buildCompanyLogoUrl } from "@/utils/companyLogoUrl";
+import defaultLogo from "./logo.png";
+import CompanyRegistrationTab from "./CompanyRegistrationTab";
+import { useAuth } from "@/contexts/AuthContext";
+import { resolveCompanyId } from "@/utils/tenant";
 
 // Interfaces
 interface Basics {
@@ -975,8 +974,12 @@ interface CompanyData {
 }
 
 const CompanyDetails = ({
-  companyId = "60c06a65-d9cb-4df7-89fc-4a77004a353d",
+  companyId: companyIdProp,
+}: {
+  companyId?: string;
 }) => {
+  const { user } = useAuth();
+  const companyId = companyIdProp ?? resolveCompanyId(user);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -1074,11 +1077,8 @@ const CompanyDetails = ({
       setData(mappedData);
 
       // Set logo preview from API
-      if (rawData.logo_url && rawData.logo_url.trim() !== "") {
-        setLogoPreview(`${IMAGE_BASE_URL}${rawData.logo_url}`);
-      } else {
-        setLogoPreview(""); // Will fallback to defaultLogo
-      }
+      const apiLogoUrl = buildCompanyLogoUrl(rawData.logo_url);
+      setLogoPreview(apiLogoUrl || "");
     } catch (error) {
       console.error("Error fetching company details:", error);
       // toast({
@@ -1195,8 +1195,9 @@ const CompanyDetails = ({
       {/* Main Content */}
       <div className="p-6">
         <div className="mx-auto max-w-6xl">
-          <Tabs defaultValue="basics" className="w-full">
-            <TabsList className="grid grid-cols-3 md:grid-cols-7 gap-2 bg-gray-200 p-2 rounded-lg shadow-inner">
+          <Tabs defaultValue="registration" className="w-full">
+            <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 bg-gray-200 p-2 rounded-lg shadow-inner">
+              <TabsTrigger value="registration">Registration</TabsTrigger>
               <TabsTrigger value="basics">Basics</TabsTrigger>
               <TabsTrigger value="address">Address</TabsTrigger>
               <TabsTrigger value="socialUrls">Social URLs</TabsTrigger>
@@ -1207,6 +1208,10 @@ const CompanyDetails = ({
               <TabsTrigger value="emailFooter">Email Footer</TabsTrigger>
               <TabsTrigger value="dltDetails">DLT Details</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="registration" className="mt-6">
+              <CompanyRegistrationTab companyId={companyId} />
+            </TabsContent>
 
             {/* Basics Tab */}
             <TabsContent value="basics" className="mt-6">
@@ -1251,15 +1256,23 @@ const CompanyDetails = ({
                       {loading ? (
                         <div className="h-32 w-32 bg-muted animate-pulse rounded-md" />
                       ) : (
-                        <img
-                          src={defaultLogo}
-                          alt="Company Logo"
-                          className="h-32 w-32 object-contain rounded-md border border-gray-300 shadow-sm"
-                        />
+                        <div className="h-32 w-32 rounded-md border border-gray-300 shadow-sm bg-muted/30 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={displayLogoSrc}
+                            alt="Company Logo"
+                            className="h-full w-full object-contain"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              if (img.src !== defaultLogo) {
+                                img.src = defaultLogo;
+                              }
+                            }}
+                          />
+                        </div>
                       )}
                       <Input
                         type="file"
-                        accept="image/*"
+                        accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
                         onChange={handleLogoChange}
                       />
                       <p className="text-xs text-muted-foreground">

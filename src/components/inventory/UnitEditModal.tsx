@@ -18,21 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import axiosInstance from "@/api/axiosInstance";
-import type { AreaUnit, InventoryUnit, UnitStatus } from "@/store/types/inventory";
+import type {
+  AreaFieldsMode,
+  AreaUnit,
+  InventoryUnit,
+  UnitStatus,
+} from "@/store/types/inventory";
+import { FACING_OPTIONS, getAreaUnitLabel } from "./inventoryConstants";
 import {
-  AREA_UNIT_OPTIONS,
-  FACING_OPTIONS,
-  STATUS_OPTIONS,
-} from "./inventoryConstants";
+  computeTotalPriceFromSqft,
+  normalizeAreaFieldsMode,
+  normalizeAreaUnitCode,
+  toCanonicalSqft,
+} from "@/utils/areaConversion";
 
 interface UnitTypeOption {
   id: number;
   label: string | null;
   unit_name: string;
+  area_fields_mode?: string | null;
 }
 
 interface UnitEditModalProps {
@@ -44,19 +51,6 @@ interface UnitEditModalProps {
   onClose: () => void;
 }
 
-const computeTotalPrice = (
-  carpet: string,
-  superBuiltup: string,
-  baseRate: string,
-): number | null => {
-  const carpetNum = Number(carpet) || 0;
-  const superNum = Number(superBuiltup) || 0;
-  const rate = Number(baseRate) || 0;
-  if (rate <= 0) return null;
-  const saleableArea = superNum > 0 ? superNum : carpetNum;
-  return saleableArea * rate;
-};
-
 const UnitEditModal = ({
   open,
   unit,
@@ -66,16 +60,11 @@ const UnitEditModal = ({
   onClose,
 }: UnitEditModalProps) => {
   const [unitTypes, setUnitTypes] = useState<UnitTypeOption[]>([]);
-  const [projectAmenities, setProjectAmenities] = useState<
-    { id: number; name: string }[]
-  >([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [unitTypesLoaded, setUnitTypesLoaded] = useState(false);
+  const [projectAreaUnit, setProjectAreaUnit] = useState<AreaUnit>("sqft");
   const [form, setForm] = useState({
     unitName: "",
-    area: "",
-    super_builtup_area: "",
-    areaUnit_carpet: "sqft" as AreaUnit,
-    areaUnit_super: "sqft" as AreaUnit,
+    areaValue: "",
     base_rate: "",
     unit_type_id: "" as string,
     facing: "",
@@ -86,76 +75,140 @@ const UnitEditModal = ({
   });
 
   useEffect(() => {
-    if (!open || !projectId) return;
+    if (!open || !projectId) {
+      setUnitTypes([]);
+      setUnitTypesLoaded(false);
+      return;
+    }
+
+    setUnitTypesLoaded(false);
     Promise.all([
       axiosInstance.get(`/projects/${projectId}/unit-type-labels`),
-      axiosInstance.get(`/projects/${projectId}/amenities`),
+      axiosInstance.get(`/projects/${projectId}`),
     ])
-      .then(([typesRes, amenitiesRes]) => {
+      .then(([typesRes, projectRes]) => {
         const rows = typesRes.data?.data ?? [];
         setUnitTypes(Array.isArray(rows) ? rows : []);
-        const amenities = amenitiesRes.data?.data ?? [];
-        setProjectAmenities(
-          Array.isArray(amenities)
-            ? amenities
-                .filter((a) => a.is_selected !== false)
-                .map((a) => ({ id: a.id, name: a.name }))
-            : [],
+        const projectRow = projectRes.data?.data ?? projectRes.data;
+        setProjectAreaUnit(
+          normalizeAreaUnitCode(projectRow?.default_area_unit) as AreaUnit,
         );
       })
       .catch(() => {
         setUnitTypes([]);
-        setProjectAmenities([]);
-      });
+        setProjectAreaUnit("sqft");
+      })
+      .finally(() => setUnitTypesLoaded(true));
   }, [open, projectId]);
 
+  const selectedUnitType = useMemo(
+    () => unitTypes.find((t) => String(t.id) === form.unit_type_id) ?? null,
+    [unitTypes, form.unit_type_id],
+  );
+
+  const areaFieldsMode: AreaFieldsMode = useMemo(
+    () => normalizeAreaFieldsMode(selectedUnitType?.area_fields_mode),
+    [selectedUnitType],
+  );
+
+  const isSuperMode = areaFieldsMode === "super_only";
+  const areaFieldLabel = isSuperMode ? "Super Builtup Area" : "Carpet Area";
+  const areaUnitLabel = getAreaUnitLabel(projectAreaUnit);
+
   useEffect(() => {
+    if (!open) return;
+
+    const mode = unit?.unit_type_id
+      ? normalizeAreaFieldsMode(
+          unitTypes.find((t) => String(t.id) === String(unit.unit_type_id))
+            ?.area_fields_mode,
+        )
+      : "carpet_only";
+    const superMode = mode === "super_only";
+
     if (unit) {
       setForm({
         unitName: unit.unitName || unit.number || "",
-        area: unit.area || "",
-        super_builtup_area: unit.super_builtup_area || "",
-        areaUnit_carpet: unit.areaUnit_carpet || "sqft",
-        areaUnit_super: unit.areaUnit_super || "sqft",
+        areaValue: superMode
+          ? unit.super_builtup_area || ""
+          : unit.area || "",
         base_rate: unit.base_rate || "",
-        unit_type_id: unit.unit_type_id ? String(unit.unit_type_id) : "",
+        unit_type_id:
+          unit.unit_type_id != null ? String(unit.unit_type_id) : "",
         facing: unit.facing || "",
         has_parking: unit.has_parking ? "yes" : "no",
         parking_count:
-          unit.parking_count !== null && unit.parking_count !== undefined
-            ? String(unit.parking_count)
-            : "",
+          unit.parking_count != null ? String(unit.parking_count) : "",
         status: unit.status || "available",
         notes: unit.notes || "",
       });
-      setSelectedAmenities(unit.amenities ?? []);
+      return;
     }
-  }, [unit]);
+
+    setForm({
+      unitName: "",
+      areaValue: "",
+      base_rate: "",
+      unit_type_id: "",
+      facing: "",
+      has_parking: "no",
+      parking_count: "",
+      status: "available",
+      notes: "",
+    });
+  }, [unit, open, unitTypes]);
 
   useEffect(() => {
-    if (unitTypes.length === 1 && !form.unit_type_id) {
+    if (!unitTypesLoaded || form.unit_type_id) return;
+    if (unitTypes.length === 1) {
       setForm((f) => ({ ...f, unit_type_id: String(unitTypes[0].id) }));
     }
-  }, [unitTypes, form.unit_type_id]);
+  }, [unitTypesLoaded, unitTypes, form.unit_type_id]);
 
-  const totalPrice = useMemo(
-    () => computeTotalPrice(form.area, form.super_builtup_area, form.base_rate),
-    [form.area, form.super_builtup_area, form.base_rate],
-  );
+  const unitTypeSelectValue = useMemo(() => {
+    if (!form.unit_type_id || !unitTypesLoaded) return "";
+    const exists = unitTypes.some(
+      (t) => String(t.id) === String(form.unit_type_id),
+    );
+    return exists ? String(form.unit_type_id) : "";
+  }, [form.unit_type_id, unitTypes, unitTypesLoaded]);
+
+  const totalPrice = useMemo(() => {
+    const entry = Number(form.areaValue) || 0;
+    const rate = Number(form.base_rate) || 0;
+    if (entry <= 0 || rate <= 0) return null;
+    const sqft = toCanonicalSqft(entry, projectAreaUnit);
+    return computeTotalPriceFromSqft(sqft, rate);
+  }, [form.areaValue, form.base_rate, projectAreaUnit]);
+
+  const handleUnitTypeChange = (typeId: string) => {
+    const type = unitTypes.find((t) => String(t.id) === typeId);
+    const newMode = normalizeAreaFieldsMode(type?.area_fields_mode);
+    const wasSuper = areaFieldsMode === "super_only";
+    const nowSuper = newMode === "super_only";
+
+    setForm((f) => {
+      let areaValue = f.areaValue;
+      if (wasSuper !== nowSuper && unit) {
+        areaValue = nowSuper ? unit.super_builtup_area || "" : unit.area || "";
+      }
+      return { ...f, unit_type_id: typeId, areaValue };
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.unit_type_id) return;
+    if (!form.unit_type_id || !form.areaValue.trim()) return;
 
     const displayName = form.unitName.trim();
 
     onSave({
       unitName: displayName || unit?.unitName || unit?.number || "",
       number: displayName || unit?.number || "",
-      area: form.area,
-      super_builtup_area: form.super_builtup_area,
-      areaUnit_carpet: form.areaUnit_carpet,
-      areaUnit_super: form.areaUnit_super,
+      area: isSuperMode ? "" : form.areaValue,
+      super_builtup_area: isSuperMode ? form.areaValue : "",
+      areaUnit_carpet: projectAreaUnit,
+      areaUnit_super: projectAreaUnit,
       base_rate: form.base_rate,
       total_price: totalPrice,
       price: totalPrice !== null ? String(totalPrice) : "",
@@ -165,7 +218,7 @@ const UnitEditModal = ({
       parking_count:
         form.has_parking === "yes" ? Number(form.parking_count) || null : null,
       status: form.status,
-      amenities: selectedAmenities,
+      amenities: unit?.amenities ?? [],
       notes: form.notes,
     });
   };
@@ -181,7 +234,9 @@ const UnitEditModal = ({
       >
         <SheetHeader className="px-6 pt-6 pb-4 border-b bg-muted/30 text-left">
           <SheetTitle className="text-xl">
-            {unit?.number ? `Edit ${unitLabel} ${unit.number}` : `Create ${unitLabel}`}
+            {unit?.number
+              ? `Edit ${unitLabel} ${unit.number}`
+              : `Create ${unitLabel}`}
           </SheetTitle>
           <SheetDescription>
             Changes are saved to the database when you submit this form.
@@ -197,8 +252,9 @@ const UnitEditModal = ({
               <div className="sm:col-span-2">
                 <Label>Unit Type *</Label>
                 <Select
-                  value={form.unit_type_id}
-                  onValueChange={(v) => setForm((f) => ({ ...f, unit_type_id: v }))}
+                  key={`unit-type-${unit?.id ?? "new"}-${unitTypes.length}-${unitTypeSelectValue}`}
+                  value={unitTypeSelectValue}
+                  onValueChange={handleUnitTypeChange}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select unit type" />
@@ -233,78 +289,34 @@ const UnitEditModal = ({
               Area & Pricing
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Carpet Area *</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    inputMode="decimal"
-                    value={form.area}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, area: e.target.value }))
-                    }
-                    placeholder="1200"
-                    className="flex-1"
-                  />
-                  <Select
-                    value={form.areaUnit_carpet}
-                    onValueChange={(v) =>
-                      setForm((f) => ({ ...f, areaUnit_carpet: v as AreaUnit }))
-                    }
-                  >
-                    <SelectTrigger className="w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AREA_UNIT_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="sm:col-span-2">
+                <Label>
+                  {areaFieldLabel} *{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({areaUnitLabel})
+                  </span>
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  value={form.areaValue}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, areaValue: e.target.value }))
+                  }
+                  placeholder="1200"
+                  className="mt-1"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Area unit is set at project level ({areaUnitLabel}). Values
+                  are stored internally in sq.ft.
+                </p>
               </div>
 
               <div>
-                <Label>Super Builtup</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    inputMode="decimal"
-                    value={form.super_builtup_area}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, super_builtup_area: e.target.value }))
-                    }
-                    placeholder="1400"
-                    className="flex-1"
-                  />
-                  <Select
-                    value={form.areaUnit_super}
-                    onValueChange={(v) =>
-                      setForm((f) => ({ ...f, areaUnit_super: v as AreaUnit }))
-                    }
-                  >
-                    <SelectTrigger className="w-28">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AREA_UNIT_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label>Base Rate (₹ / unit)</Label>
+                <Label>Base Rate (₹ / sq.ft)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -329,7 +341,7 @@ const UnitEditModal = ({
                   className="mt-1 bg-muted font-medium"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Super Builtup Area (or Carpet Area if empty) × Base Rate
+                  {areaFieldLabel} × Base Rate (canonical sq.ft)
                 </p>
               </div>
             </div>
@@ -407,28 +419,6 @@ const UnitEditModal = ({
                 </div>
               )}
 
-              {/* Project Amenities section removed from unit creation & edit */}
-
-              {/* TODO: re-enable later — unit status UI temporarily hidden
-              <div className="sm:col-span-2">
-                <Label>Status</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {STATUS_OPTIONS.map((s) => (
-                    <Badge
-                      key={s.value}
-                      variant={form.status === s.value ? "default" : "outline"}
-                      className="cursor-pointer px-3 py-1"
-                      onClick={() =>
-                        setForm((f) => ({ ...f, status: s.value as UnitStatus }))
-                      }
-                    >
-                      {s.label}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              */}
-
               <div className="sm:col-span-2">
                 <Label>Notes</Label>
                 <Textarea
@@ -448,7 +438,10 @@ const UnitEditModal = ({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!form.unit_type_id}>
+            <Button
+              type="submit"
+              disabled={!unitTypeSelectValue || !form.areaValue.trim()}
+            >
               Save Unit
             </Button>
           </SheetFooter>

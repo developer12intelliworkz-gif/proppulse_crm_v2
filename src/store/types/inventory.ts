@@ -8,7 +8,15 @@ export type UnitStatus =
   | "booked";
 
 export type AreaType = "sqft" | "sqyard" | "acre";
-export type AreaUnit = "sqft" | "sqyd";
+export type AreaUnit =
+  | "sqft"
+  | "sqyd"
+  | "sqm"
+  | "acre"
+  | "bigha"
+  | "sector";
+
+export type AreaFieldsMode = "carpet_only" | "super_only";
 
 export interface InventoryUnit {
   id: string;

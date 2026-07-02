@@ -10,6 +10,7 @@ import {
   Map,
   FileDown,
   ArrowRight,
+  Building2,
 } from "lucide-react";
 
 interface SettingItem {
@@ -54,6 +55,13 @@ const settingsData: SettingItem[] = [
     title: "Company Details",
     description: "Manage your common company details.",
     path: "/settings/company-details",
+    permission: "view_settings",
+  },
+  {
+    icon: Building2,
+    title: "Brand Registration",
+    description: "Register and manage multiple brands for your company.",
+    path: "/settings/brand-registration",
     permission: "view_settings",
   },
   {

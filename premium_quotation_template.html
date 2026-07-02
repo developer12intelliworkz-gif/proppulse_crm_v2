@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premium Property Quotation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0E4A84;
+      --secondary: #2563EB;
+      --background: #F8FAFC;
+      --border: #E5E7EB;
+      --text: #111827;
+      --text-muted: #6B7280;
+      --success: #16A34A;
+      --card-bg: #FFFFFF;
+      --radius: 12px;
+      --transition: all 0.2s ease-in-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--background);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 40px 20px;
+    }
+
+    /* A4 Page container */
+    .page-container {
+      max-width: 842px; /* Standard A4 Width */
+      margin: 0 auto;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Center watermark */
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      height: 400px;
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .content-wrapper {
+      position: relative;
+      z-index: 1;
+      padding: 24px;
+    }
+
+    /* Section spacing */
+    .section-spacing {
+      margin-bottom: 24px;
+    }
+
+    /* Top Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, #1e5e9b 100%);
+      color: white;
+      padding: 32px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .project-logo-container {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      width: 70px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .project-logo {
+      width: 48px;
+      height: 48px;
+      fill: currentColor;
+    }
+
+    .project-info h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .project-tagline {
+      font-size: 12px;
+      font-weight: 300;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .project-location {
+      font-size: 11px;
+      opacity: 0.75;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 0 30px;
+    }
+
+    .header-right {
+      text-align: right;
+      min-width: 220px;
+    }
+
+    .quote-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      font-size: 11px;
+      text-align: left;
+    }
+
+    .meta-label {
+      opacity: 0.75;
+      font-weight: 500;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* Section Cards Grid (Section 2) */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .details-list {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 16px;
+      font-size: 12px;
+    }
+
+    .details-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .details-value {
+      color: var(--text);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* Stat Cards Grid (Section 3) */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      transition: var(--transition);
+    }
+
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .stat-icon-wrapper {
+      background: #EFF6FF;
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--secondary);
+    }
+
+    /* Price Breakdown Card (Section 4) */
+    .pricing-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+    }
+
+    .pricing-header {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .pricing-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+
+    .pricing-row {
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .pricing-row:last-child {
+      border-bottom: none;
+    }
+
+    .pricing-row td {
+      padding: 8px 0;
+      font-size: 13px;
+    }
+
+    .pricing-particular {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .pricing-amount {
+      font-weight: 600;
+      text-align: right;
+      color: var(--text);
+    }
+
+    .pricing-row.discount-row td {
+      color: var(--success);
+    }
+
+    .pricing-divider {
+      height: 2px;
+      background-color: var(--primary);
+      margin: 12px 0;
+    }
+
+    .grand-total-container {
+      background: var(--primary);
+      color: white;
+      border-radius: 8px;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .total-title-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .total-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 1px;
+      opacity: 0.9;
+    }
+
+    .total-subtitle {
+      font-size: 10px;
+      opacity: 0.75;
+      margin-top: 2px;
+    }
+
+    .total-amount-group {
+      text-align: right;
+    }
+
+    .total-amount {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    /* Timeline Payment Schedule (Section 5) */
+    .timeline-container {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .timeline-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .timeline {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      margin-top: 15px;
+    }
+
+    .timeline-line {
+      position: absolute;
+      top: 15px;
+      left: 10%;
+      right: 10%;
+      height: 3px;
+      background: #E5E7EB;
+      z-index: 1;
+    }
+
+    .timeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      flex: 1;
+    }
+
+    .timeline-node {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      border: 3px solid var(--secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 8px;
+      box-shadow: 0 0 0 4px #EFF6FF;
+    }
+
+    .timeline-step.completed .timeline-node {
+      background: var(--secondary);
+      color: #FFFFFF;
+    }
+
+    .step-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .step-percentage {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--secondary);
+      background: #EFF6FF;
+      padding: 2px 6px;
+      border-radius: 12px;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .step-amount {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Terms Card (Section 6) */
+    .terms-card {
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .terms-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .terms-list {
+      list-style-type: none;
+    }
+
+    .terms-list li {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .terms-list li::before {
+      content: "•";
+      color: var(--secondary);
+      font-weight: bold;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    /* Footer Layout (Section 7) */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 0 0 0;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr;
+      gap: 20px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .footer-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .footer-col.center-align {
+      align-items: center;
+      text-align: center;
+    }
+
+    .footer-col.right-align {
+      align-items: flex-end;
+      text-align: right;
+    }
+
+    .footer-title {
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 10px;
+    }
+
+    .qr-placeholder {
+      width: 60px;
+      height: 60px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px;
+      margin-bottom: 4px;
+    }
+
+    .doc-gen-note {
+      font-size: 8px;
+      opacity: 0.7;
+      margin-top: 8px;
+    }
+
+    /* Print styling rules */
+    @media print {
+      body {
+        background-color: #FFFFFF;
+        padding: 0;
+      }
+      .page-container {
+        box-shadow: none;
+        border-radius: 0;
+        max-width: 100%;
+      }
+      .card, .timeline-container, .pricing-card, .terms-card {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-container">
+    <!-- Watermark Logo -->
+    <svg class="watermark" viewBox="0 0 100 100">
+      <path d="M50 15 L80 32 L80 68 L50 85 L20 68 L20 32 Z" fill="none" stroke="currentColor" stroke-width="2" />
+      <path d="M50 25 L70 37 L70 63 L50 75 L30 63 L30 37 Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <text x="50" y="53" font-family="'Inter'" font-size="6" font-weight="bold" text-anchor="middle" fill="currentColor">SHYAM</text>
+    </svg>
+
+    <!-- Top Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="project-logo-container">
+          <svg class="project-logo" viewBox="0 0 100 100">
+            <path d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z" fill="none" stroke="white" stroke-width="4" />
+            <path d="M50 22 L75 36 L75 64 L50 78 L25 64 L25 36 Z" fill="none" stroke="white" stroke-width="3" />
+            <text x="50" y="55" font-family="'Inter'" font-size="10" font-weight="900" text-anchor="middle" fill="white">S242</text>
+          </svg>
+        </div>
+        <div class="project-info">
+          <h1>Shyam 242</h1>
+          <p class="project-tagline">Premium Residential Projects</p>
+          <p class="project-location">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 00-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 00-8-8z"/><circle cx="12" cy="10" r="3" fill="currentColor"/></svg>
+            Ahmedabad, Gujarat
+          </p>
+        </div>
+      </div>
+      <div class="header-divider"></div>
+      <div class="header-right">
+        <div class="quote-title">QUOTATION</div>
+        <div class="meta-grid">
+          <span class="meta-label">Quotation No</span>
+          <span class="meta-value">QT-2026-00020</span>
+          
+          <span class="meta-label">Generated Date</span>
+          <span class="meta-value">2026-06-30</span>
+          
+          <span class="meta-label">Valid Until</span>
+          <span class="meta-value">2026-07-30</span>
+          
+          <span class="meta-label">Generated By</span>
+          <span class="meta-value">Arvind Rajput</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-wrapper">
+      <!-- Section 2: Two Equal Cards -->
+      <section class="cards-grid section-spacing">
+        <!-- Client Details Card -->
+        <div class="card">
+          <h2 class="card-title">Client Details</h2>
+          <div class="details-list">
+            <span class="details-label">Customer Name</span>
+            <span class="details-value">Manthan Panchal</span>
+            
+            <span class="details-label">Mobile</span>
+            <span class="details-value">+91 98765 43210</span>
+            
+            <span class="details-label">Email</span>
+            <span class="details-value">manthan@example.com</span>
+            
+            <span class="details-label">Address</span>
+            <span class="details-value">A-404, Dev Aurum, Ahmedabad</span>
+            
+            <span class="details-label">Sales Executive</span>
+            <span class="details-value">Vijay Patel</span>
+            
+            <span class="details-label">Booking Date</span>
+            <span class="details-value">2026-06-30</span>
+          </div>
+        </div>
+
+        <!-- Property Details Card -->
+        <div class="card">
+          <h2 class="card-title">Property Details</h2>
+          <div class="details-list">
+            <span class="details-label">Project</span>
+            <span class="details-value">Shyam 242</span>
+            
+            <span class="details-label">Tower</span>
+            <span class="details-value">Block A</span>
+            
+            <span class="details-label">Floor</span>
+            <span class="details-value">4th Floor</span>
+            
+            <span class="details-label">Unit Number</span>
+            <span class="details-value">A-403</span>
+            
+            <span class="details-label">Unit Type</span>
+            <span class="details-value">3 BHK Premium</span>
+            
+            <span class="details-label">Facing</span>
+            <span class="details-value">East-Facing</span>
+            
+            <span class="details-label">Carpet Area</span>
+            <span class="details-value">2,404 Sq.ft</span>
+            
+            <span class="details-label">Super Built-up Area</span>
+            <span class="details-value">3,245 Sq.ft</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Property Summary -->
+      <section class="stats-grid section-spacing">
+        <!-- Carpet Area -->
+        <div class="stat-card">
+          <div class="stat-info">
+            <span class="stat-label">Carpet Area</span>
+            <span class="stat-value">2,404 Sq.ft</span>
+          </div>
+          <div class="stat-icon-wrapper">
+            <svg class="stat-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z M9 9h6v6H9z"/></svg>
+          </div>
+        </div>
+
+        <!-- Super Built-up Area -->
+        <div class="stat-card">
+          <div class="stat-info">
+            <span class="stat-label">Super Built-up</span>
+            <span class="stat-value">3,245 Sq.ft</span>
+          </div>
+          <div class="stat-icon-wrapper">
+            <svg class="stat-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+        </div>
+
+        <!-- Rate / Sq.ft -->
+        <div class="stat-card">
+          <div class="stat-info">
+            <span class="stat-label">Rate / Sq.ft</span>
+            <span class="stat-value">₹2,566.00</span>
+          </div>
+          <div class="stat-icon-wrapper">
+            <svg class="stat-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          </div>
+        </div>
+
+        <!-- Base Price -->
+        <div class="stat-card">
+          <div class="stat-info">
+            <span class="stat-label">Base Price</span>
+            <span class="stat-value">₹61,68,664</span>
+          </div>
+          <div class="stat-icon-wrapper">
+            <svg class="stat-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Price Breakdown -->
+      <section class="pricing-card section-spacing">
+        <h2 class="pricing-header">Price Breakdown</h2>
+        <table class="pricing-table">
+          <tr class="pricing-row">
+            <td class="pricing-particular">Basic Price</td>
+            <td class="pricing-amount">₹61,68,664.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Floor Rise Charges</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">PLC Charges (Preferential Location Charges)</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Parking Charges</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Club House Membership</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Maintenance Deposit</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Legal Charges</td>
+            <td class="pricing-amount">₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Advocate Fee</td>
+            <td class="pricing-amount">₹25,000.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">GST (Goods & Services Tax)</td>
+            <td class="pricing-amount">₹7,40,239.68</td>
+          </tr>
+          <tr class="pricing-row discount-row">
+            <td class="pricing-particular">Discount / Special Rebate</td>
+            <td class="pricing-amount">-₹0.00</td>
+          </tr>
+          <tr class="pricing-row">
+            <td class="pricing-particular">Net Amount (Excluding Taxes & advocate fee)</td>
+            <td class="pricing-amount">₹61,68,664.00</td>
+          </tr>
+        </table>
+        
+        <div class="pricing-divider"></div>
+
+        <div class="grand-total-container">
+          <div class="total-title-group">
+            <span class="total-label">Grand Total</span>
+            <span class="total-subtitle">Inclusive of Taxes</span>
+          </div>
+          <div class="total-amount-group">
+            <span class="total-amount">₹69,33,903.68</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Payment Schedule -->
+      <section class="timeline-container section-spacing">
+        <h2 class="timeline-title">Payment Schedule</h2>
+        <div class="timeline">
+          <div class="timeline-line"></div>
+          
+          <div class="timeline-step completed">
+            <div class="timeline-node">1</div>
+            <span class="step-name">Booking Amount</span>
+            <span class="step-percentage">10%</span>
+            <span class="step-amount">₹6,93,390</span>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-node">2</div>
+            <span class="step-name">Agreement</span>
+            <span class="step-percentage">20%</span>
+            <span class="step-amount">₹13,86,781</span>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-node">3</div>
+            <span class="step-name">Plinth</span>
+            <span class="step-percentage">15%</span>
+            <span class="step-amount">₹10,40,086</span>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-node">4</div>
+            <span class="step-name">Slab</span>
+            <span class="step-percentage">35%</span>
+            <span class="step-amount">₹24,26,866</span>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="timeline-node">5</div>
+            <span class="step-name">Possession</span>
+            <span class="step-percentage">20%</span>
+            <span class="step-amount">₹13,86,781</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Terms & Conditions -->
+      <section class="terms-card section-spacing">
+        <h3 class="terms-title">Terms & Conditions</h3>
+        <ul class="terms-list">
+          <li>This quotation is valid for 30 days from the date of issue. Taxes and statutory charges are as applicable.</li>
+          <li>All payments must be made in favor of "Shyam Groups Ahmedabad" via banking channels only.</li>
+          <li>Stamp duty, registration charges, and legal expenses are extra as per actual costs at booking execution.</li>
+          <li>Delay in payment installments will attract interest at the RERA prescribed SBI MCLR + 2% rate.</li>
+          <li>Areas mentioned are approximate carpet areas subject to minor adjustment under architecture norms.</li>
+        </ul>
+      </section>
+
+      <!-- Section 7: Footer -->
+      <footer class="footer">
+        <div class="footer-col">
+          <span class="footer-title">Project Address</span>
+          <p>Shyam 242, Near Vaishnodevi Circle, S.G. Highway, Ahmedabad, Gujarat - 382421</p>
+        </div>
+        
+        <div class="footer-col center-align">
+          <span class="footer-title">Contact Us</span>
+          <p>Phone: +91 79 4000 1234</p>
+          <p>Email: sales@shyamgroups.com</p>
+          <p>Website: www.shyamgroups.com</p>
+        </div>
+        
+        <div class="footer-col right-align">
+          <span class="footer-title">RERA Registration</span>
+          <p>PR/GJ/AHMEDABAD/AUDA/CAA01234/A1M</p>
+          <svg class="qr-placeholder" viewBox="0 0 100 100">
+            <!-- Simulated QR Code SVG pattern -->
+            <rect x="10" y="10" width="20" height="20" fill="currentColor"/>
+            <rect x="15" y="15" width="10" height="10" fill="white"/>
+            <rect x="70" y="10" width="20" height="20" fill="currentColor"/>
+            <rect x="75" y="15" width="10" height="10" fill="white"/>
+            <rect x="10" y="70" width="20" height="20" fill="currentColor"/>
+            <rect x="15" y="75" width="10" height="10" fill="white"/>
+            <rect x="40" y="40" width="20" height="20" fill="currentColor"/>
+            <rect x="45" y="45" width="10" height="10" fill="white"/>
+            <rect x="70" y="70" width="10" height="10" fill="currentColor"/>
+            <rect x="80" y="80" width="10" height="10" fill="currentColor"/>
+            <rect x="80" y="70" width="10" height="10" fill="currentColor"/>
+            <rect x="70" y="80" width="10" height="10" fill="currentColor"/>
+            <rect x="40" y="10" width="10" height="20" fill="currentColor"/>
+            <rect x="10" y="40" width="20" height="10" fill="currentColor"/>
+          </svg>
+          <span class="doc-gen-note">This is a system-generated secure document</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+</body>
+</html>
